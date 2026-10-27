@@ -8,6 +8,7 @@ let session = null;
 let generation = 0;
 let refreshPromise = null;
 let busy = false;
+let recoveryToken = null;
 let state = emptyState();
 function emptyState() {
   return { employee: null, roles: [], employees: [], students: [], sessions: [], studentAttendance: [], staffAttendance: [] };
@@ -50,11 +51,13 @@ async function transport(path, { method = 'GET', body, token, prefer } = {}) {
 function clearSession() {
   generation++;
   session = null;
+  recoveryToken = null;
   refreshPromise = null;
   busy = false;
   state = emptyState();
   el('workspace').hidden = true;
   el('login-section').hidden = false;
+  el('recovery-section').hidden = true;
   el('identity').textContent = '';
   for (const id of ['students-body', 'sessions-body', 'student-records', 'staff-records']) el(id).replaceChildren();
   for (const form of document.querySelectorAll('form')) form.reset();
@@ -367,3 +370,88 @@ async function signOut() {
 }
 el('sign-out').addEventListener('click', signOut);
 window.educationPortal = Object.freeze({ setSession, signOut, clearSession });
+
+el('forgot-password').addEventListener('click', async () => {
+  if (!el('email').reportValidity()) return;
+  el('forgot-password').disabled = true;
+  message('login-message', 'Requesting a password reset email…');
+  try {
+    // Use the actual deployed page, not Supabase's default localhost redirect.
+    const redirect = location.origin + location.pathname;
+    await transport('/auth/v1/recover?redirect_to=' + encodeURIComponent(redirect), {
+      method: 'POST', body: { email: el('email').value.trim() }
+    });
+    message('login-message', 'If this email has an account, a reset email will arrive. Open the newest link.');
+  } catch (error) {
+    message('login-message', 'Could not request a reset: ' + error.message, true);
+  } finally { el('forgot-password').disabled = false; }
+});
+el('cancel-recovery').addEventListener('click', () => {
+  clearSession();
+  message('login-message', 'Password reset cancelled. Request a new email when you are ready.');
+});
+el('recovery-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!recoveryToken) return;
+  if (el('new-password').value !== el('confirm-password').value) {
+    message('recovery-message', 'The passwords do not match.', true);
+    return;
+  }
+  const epoch = generation, token = recoveryToken;
+  el('recovery-submit').disabled = true;
+  message('recovery-message', 'Updating your password…');
+  try {
+    await transport('/auth/v1/user', {
+      method: 'PUT', token, body: { password: el('new-password').value }
+    });
+    if (epoch !== generation) return;
+    clearSession();
+    message('login-message', 'Password updated. Sign in with your new password.');
+    // Discard the recovery session rather than retaining it as a staff login.
+    try { await transport('/auth/v1/logout?scope=local', { method: 'POST', token }); } catch { /* Local recovery state is already cleared. */ }
+  } catch (error) {
+    if (epoch !== generation) return;
+    if (error.status === 401 || error.status === 403) {
+      clearSession();
+      message('login-message', 'This recovery session expired. Request a new reset email.', true);
+    } else message('recovery-message', 'Could not update password: ' + error.message, true);
+  } finally {
+    el('new-password').value = ''; el('confirm-password').value = '';
+    el('recovery-submit').disabled = false;
+  }
+});
+
+async function handleRecoveryLink() {
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const url = new URL(location.href);
+  if (!hash.has('access_token') && !hash.has('error') && !hash.has('error_code') && !url.searchParams.has('code')) return;
+  // Remove credentials from browser history immediately, before any await.
+  url.hash = ''; url.searchParams.delete('code');
+  history.replaceState(null, '', url.pathname + url.search);
+  clearSession();
+  if (hash.get('type') !== 'recovery' || !hash.get('access_token')) {
+    message('login-message', 'This recovery link is expired or unsupported. Enter your email and request a new reset using Forgot password.', true);
+    return;
+  }
+  const epoch = generation;
+  const token = hash.get('access_token');
+  el('login-section').hidden = true;
+  el('recovery-section').hidden = false;
+  el('recovery-submit').disabled = true;
+  message('recovery-message', 'Checking your recovery link…');
+  try {
+    const user = await transport('/auth/v1/user', { token });
+    if (!user?.id) throw new Error('Invalid recovery session.');
+    if (epoch !== generation) return;
+    recoveryToken = token;
+    message('recovery-message', 'Recovery link verified. Enter your new password.');
+    el('new-password').focus();
+  } catch {
+    if (epoch === generation) {
+      clearSession();
+      message('login-message', 'This recovery link is invalid or expired. Request a new reset email.', true);
+    }
+  } finally { if (epoch === generation) el('recovery-submit').disabled = false; }
+}
+handleRecoveryLink();
+window.addEventListener('hashchange', handleRecoveryLink);

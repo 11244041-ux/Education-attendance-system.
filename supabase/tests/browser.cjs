@@ -155,6 +155,56 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
     await portalPage.evaluate(() => window.educationPortal.clearSession());
     assert.equal(await portalPage.locator('#workspace').isVisible(), false); checks++;
     await portalPage.close();
+    const recoveryPage = await browser.newPage();
+    const recoveryCalls = [];
+    let passwordChanged = false;
+    await recoveryPage.route('https://stzxapveaocuzbidpfng.supabase.co/**', async route => {
+      const req = route.request(), url = new URL(req.url());
+      recoveryCalls.push(url.pathname);
+      const reply = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
+      if (url.pathname === '/auth/v1/recover') {
+        assert.equal(url.searchParams.get('redirect_to'), 'http://127.0.0.1:' + server.address().port + '/');
+        assert.equal(req.postDataJSON().email, 'fictional@example.test');
+        return reply({});
+      }
+      if (url.pathname === '/auth/v1/user') {
+        if (req.headers().authorization !== 'Bearer recovery-token') return reply({ message: 'Invalid session' }, 401);
+        if (req.method() === 'PUT') {
+          assert.equal(req.postDataJSON().password, 'New-fictional-password');
+          passwordChanged = true;
+        }
+        return reply({ id: employee.auth_user_id });
+      }
+      if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204 });
+      throw new Error('Recovery must not access database records');
+    });
+    const base = 'http://127.0.0.1:' + server.address().port;
+    await recoveryPage.goto(base);
+    await recoveryPage.fill('#email', 'fictional@example.test'); await recoveryPage.click('#forgot-password');
+    await recoveryPage.getByText(/If this email has an account/).waitFor(); checks++;
+    await recoveryPage.goto(base + '/#access_token=recovery-token&refresh_token=secret-refresh&type=recovery');
+    await recoveryPage.getByText('Recovery link verified. Enter your new password.', { exact: true }).waitFor();
+    assert.equal(new URL(recoveryPage.url()).hash, ''); checks++;
+    assert.equal(await recoveryPage.locator('#workspace').isVisible(), false); checks++;
+    await recoveryPage.fill('#new-password', 'New-fictional-password');
+    await recoveryPage.fill('#confirm-password', 'Wrong-password');
+    await recoveryPage.click('#recovery-submit');
+    await recoveryPage.getByText('The passwords do not match.', { exact: true }).waitFor();
+    assert.equal(passwordChanged, false); checks++;
+    await recoveryPage.fill('#confirm-password', 'New-fictional-password');
+    await recoveryPage.click('#recovery-submit');
+    await recoveryPage.getByText('Password updated. Sign in with your new password.', { exact: true }).waitFor();
+    assert.equal(passwordChanged, true); checks++;
+    assert.equal(await recoveryPage.inputValue('#new-password'), ''); checks++;
+    assert.equal(await recoveryPage.evaluate(() => localStorage.length + sessionStorage.length), 0); checks++;
+    assert.equal(recoveryCalls.some(p => p.startsWith('/rest/')), false); checks++;
+    await recoveryPage.goto(base + '/#access_token=expired-token&type=recovery');
+    await recoveryPage.getByText('This recovery link is invalid or expired. Request a new reset email.', { exact: true }).waitFor(); checks++;
+    assert.equal(new URL(recoveryPage.url()).hash, ''); checks++;
+    await recoveryPage.goto(base + '/#error=access_denied&error_code=otp_expired');
+    await recoveryPage.getByText(/This recovery link is expired or unsupported/).waitFor(); checks++;
+    assert.equal(new URL(recoveryPage.url()).hash, ''); checks++;
+    await recoveryPage.close();
     console.log(`${checks} browser checks passed across roles, error states, portal handoff, and token refresh (mocked APIs).`);
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

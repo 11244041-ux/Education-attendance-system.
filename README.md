@@ -33,7 +33,7 @@ The Supabase URL and browser publishable key are constants in `app.js`; the app 
 
 ## General portal integration
 
-The built-in sign-in form supports existing email/password Supabase Auth accounts; account invitations, password recovery, and MFA flows belong to the general portal. For other login methods, use the portal's existing Auth flow and hand its session to this module after `app.js` loads:
+The built-in sign-in form supports existing email/password Supabase Auth accounts and password recovery. Account invitations and MFA flows belong to the general portal. For other login methods, use the portal's existing Auth flow and hand its session to this module after `app.js` loads:
 
 ```js
 await window.educationPortal.setSession(portalSupabaseSession);
@@ -41,7 +41,13 @@ await window.educationPortal.setSession(portalSupabaseSession);
 
 Pass the standard Supabase session object (`access_token`, `refresh_token`, `expires_at` in Unix seconds). The module verifies the user with Supabase Auth, loads their linked profile and roles, and refreshes expiring tokens. Calls to the database carry that user's access token. Repeated session changes clear prior data and ignore stale responses.
 
-Tokens remain in memory; reloading the page requires portal handoff or another sign-in. No tokens are stored in browser storage or accepted from URLs or cross-window messages. The portal should supply sessions only through trusted same-page code, never an arbitrary message handler. Portal-wide sign-out should call `window.educationPortal.clearSession()` to remove module data; the module's Sign out button additionally requests local Supabase session revocation. Do not log or paste session objects into chat.
+Tokens remain in memory; reloading the page requires portal handoff or another sign-in. No tokens are stored in browser storage or accepted from cross-window messages. Password recovery is the sole supported URL-token callback: the fragment is removed immediately from history, verified with Auth, and used only to update the account password. The portal should supply normal sessions only through trusted same-page code, never an arbitrary message handler. Portal-wide sign-out should call `window.educationPortal.clearSession()` to remove module data; the module's Sign out button additionally requests local Supabase session revocation. Do not log or paste session objects into chat.
+
+## Password recovery on GitHub Pages
+
+In Supabase **Authentication → URL Configuration**, set the Site URL to the exact deployed page URL (normally `https://11244041-ux.github.io/training-attendance-system./`) and add that same URL, including the repository path and trailing slash, to Redirect URLs. Use the URL shown by GitHub **Settings → Pages** if a custom domain or another path is configured. Do not leave localhost as the production Site URL. For a shared portal, coordinate the project-wide Site URL with its owner; add this module's exact callback URL to Redirect URLs without replacing other departments' entries.
+
+After the updated GitHub Pages deployment completes, enter the account email and click **Forgot password?** on the webpage. This sends a recovery request with the current page as `redirect_to`. Open the newest email link, set and confirm a new password, then sign in. Existing account IDs, employee profiles, and role links remain unchanged. Passwords must be at least eight characters and satisfy any stronger project policy. Supabase email configuration, delivery limits, and any custom email templates must support its standard recovery link with the requested redirect. The page supports standard implicit recovery fragments; PKCE `code` links require the portal's own matching flow or a fresh reset requested through this page. Never share recovery links or screenshots containing their tokens.
 
 Restricted development environments need outbound HTTPS access to `stzxapveaocuzbidpfng.supabase.co`. A proxy CONNECT 403 indicates a network restriction before reaching Supabase. Errors returned by Supabase itself require checking its configuration and policies separately.
 
@@ -54,7 +60,7 @@ Education owns its department's employee data, the general portal uses Supabase 
 The user reports applying both migrations, testing own-profile isolation, and assigning test administrator/teacher roles. The latest read-only check confirms that all five second-migration tables are now exposed through REST and deny anonymous access with HTTP 401 / permission denied. Real authenticated role assignments and complete portal workflows still require acceptance testing.
 
 - 34 local PostgreSQL permission checks passed using simulated Supabase Auth identities.
-- 67 browser checks passed with mocked APIs: account/role visibility, student creation/editing, session creation, attendance insertion/correction, duplicate feedback, logout cleanup, missing-profile/schema errors, portal session handoff, and token refresh.
+- 79 browser checks passed with mocked APIs: account/role visibility, student creation/editing, session creation, attendance insertion/correction, duplicate feedback, logout cleanup, missing-profile/schema errors, portal session handoff, token refresh, and password recovery including expired links.
 - These tests do not establish authenticated behavior in the hosted project. No real employee credentials were used and no hosted records were changed.
 - Refresh still downloads all permitted records before filtering locally; larger deployments should add server-side filtering/pagination.
 - Portal embedding, real Auth-token lifecycle, and hosted allowed/denied requests require end-to-end acceptance tests.

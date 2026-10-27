@@ -17,8 +17,22 @@
       <label for="email">Email</label><input id="email" type="email" autocomplete="username" required>
       <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required>
       <button id="login-submit" type="submit">Sign in</button>
+      <button id="forgot-password" class="secondary" type="button">Forgot password?</button>
     </form>
     <p id="login-message" class="message" role="status" aria-live="polite"></p>
+  </section>
+  <section id="recovery-section" hidden>
+    <h2>Set a new password</h2>
+    <p>Choose a new password for your existing staff account. Your employee profile and roles will stay linked.</p>
+    <form id="recovery-form">
+      <label for="new-password">New password</label>
+      <input id="new-password" type="password" autocomplete="new-password" minlength="8" required>
+      <label for="confirm-password">Confirm new password</label>
+      <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required>
+      <button id="recovery-submit" type="submit">Save new password</button>
+      <button id="cancel-recovery" class="secondary" type="button">Back to sign in</button>
+    </form>
+    <p id="recovery-message" class="message" role="status" aria-live="polite"></p>
   </section>
   <div id="workspace" hidden>
     <section class="toolbar"><p id="identity"></p><button id="sign-out" type="button">Sign out</button></section>
