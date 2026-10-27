@@ -20,7 +20,7 @@ Assessment workflow default: the assigned teacher creates assessments and record
 
 1. Confirm the disposable development project and an existing module administrator. Apply migrations 001–003 first only if they are not already applied.
 2. Review and run the complete `migrations/20261028000400_catalog_enrollment_assessment.sql` once in SQL Editor. It is transactional and fails on object conflicts. It does not import the source project's `tcm_train` tables or bigint IDs.
-3. Deploy the matching frontend, including **catalog.js** alongside app.js, index.html, styles.css, and assets/. Migration 004 replaces earlier student/session writers with messages directing clients to the location/class-aware RPCs. Coordinate both steps; older clients cannot continue using the old write contracts.
+3. Deploy the matching frontend, including **catalog.js** and **workspace.js** alongside app.js, index.html, styles.css, and assets/. Migration 004 replaces earlier student/session writers with messages directing clients to the location/class-aware RPCs. Coordinate both steps; older clients cannot continue using the old write contracts.
 4. Sign in as administrator. Under **Programs, locations and classes**, assign each approved teacher one location. A teacher with no location has no scoped teaching access.
 5. Review old student profiles: Edit each and select its actual location. Migration does not guess a location or create enrollments from names.
 6. Create classes: choose location, program, teacher, academic year, and either a vocational course or Cram grade/shift. Teacher options are limited to approved teachers at that location. Existing class definitions are preserved; use archive/new class rather than rewriting historical class identity.

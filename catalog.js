@@ -100,6 +100,7 @@ function renderCatalog() {
       el('enrollment-id').value = row.id; el('enrollment-class').value = row.class_id;
       el('enrollment-status').value = row.status; el('enrolled-on').value = row.enrolled_on; el('ended-on').value = row.ended_on || '';
       updateEnrollmentFields(); el('enrollment-student').value = row.student_id; el('enrollment-form').scrollIntoView({block:'center'});
+      el('enrollment-status').focus({preventScroll:true});
     }
   });
   for (const row of catalogRows('assessments')) tableRow('assessments-body',[row.title,catalogClassName(row.class_id),catalogFind('subjects',row.subject_id)?.name,row.assessment_date]);
@@ -112,6 +113,7 @@ function renderCatalog() {
         el('mark-assessment').value = row.assessment_id; updateAssessmentFields();
         el('mark-enrollment').value = row.enrollment_id; el('mark-value').value = row.mark;
         el('mark-form').scrollIntoView({block:'center'});
+        el('mark-value').focus({preventScroll:true});
       }
     } : null);
   }
@@ -119,6 +121,7 @@ function renderCatalog() {
     const mark = catalogFind('marks',row.mark_id), enrollment = catalogFind('enrollments',mark?.enrollment_id);
     tableRow('mark-history-body',[row.occurred_at,(enrollment?.student_name || '') + ' · ' + (catalogFind('assessments',mark?.assessment_id)?.title || ''),row.old_mark,row.new_mark,row.revision]);
   }
+  if (typeof enhanceTables === 'function') enhanceTables();
 }
 function requireSaved(rows) { if (!rows?.length) throw new Error('No record was saved. Refresh and check your permissions.'); }
 bindSave('teacher-location-form','teacher-location-message',async () => {

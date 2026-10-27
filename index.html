@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
   <script src="catalog.js" defer></script>
+  <script src="workspace.js" defer></script>
 </head>
 <body class="auth-view">
 <div class="auth-backdrop" aria-hidden="true">
@@ -21,11 +22,12 @@
   <section id="login-section" class="auth-card" aria-labelledby="login-heading">
     <div class="auth-brand"><span class="auth-brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M4 8c5-2 9-1 12 2 3-3 7-4 12-2v17c-5-2-9-1-12 2-3-3-7-4-12-2V8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M16 10v17M8 13l4 1M8 18l4 1M20 14l4-1M20 19l4-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><p>TCMS<span>Education &amp; Vocational Training</span></p></div>
     <p class="auth-eyebrow">LEARNING TOGETHER. GROWING TOGETHER.</p>
-    <h2 id="login-heading">Staff sign in</h2>
+    <h1 id="login-heading">Staff sign in</h1>
     <p class="auth-intro">Welcome back. Sign in with your company account to access your Education workspace.</p>
     <form id="login-form">
       <label for="email">Email</label><input id="email" type="email" autocomplete="username" required>
       <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required>
+      <button type="button" class="password-toggle" data-password="password" aria-controls="password" aria-pressed="false">Show password</button>
       <button id="login-submit" type="submit">Sign in</button>
       <button id="forgot-password" class="secondary" type="button">Forgot password?</button>
     </form>
@@ -34,24 +36,30 @@
   </section>
   <section id="recovery-section" class="auth-card" aria-labelledby="recovery-heading" hidden>
     <p class="auth-eyebrow">TCMS · EDUCATION &amp; VOCATIONAL TRAINING</p>
-    <h2 id="recovery-heading">Set a new password</h2>
+    <h1 id="recovery-heading">Set a new password</h1>
     <p class="auth-intro">Choose a new password for your existing staff account. Your employee profile and roles will stay linked.</p>
     <form id="recovery-form">
       <label for="new-password">New password</label>
       <input id="new-password" type="password" autocomplete="new-password" minlength="8" required>
+      <button type="button" class="password-toggle" data-password="new-password" aria-controls="new-password" aria-pressed="false">Show new password</button>
       <label for="confirm-password">Confirm new password</label>
       <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required>
+      <button type="button" class="password-toggle" data-password="confirm-password" aria-controls="confirm-password" aria-pressed="false">Show confirmation</button>
       <button id="recovery-submit" type="submit">Save new password</button>
       <button id="cancel-recovery" class="secondary" type="button">Back to sign in</button>
     </form>
     <p id="recovery-message" class="message" role="status" aria-live="polite"></p>
   </section>
   <div id="workspace" hidden>
-    <section class="toolbar"><p id="identity"></p><button id="sign-out" type="button">Sign out</button></section>
+    <a class="skip-link" href="#data-fields">Skip to workspace content</a>
+    <section class="toolbar workspace-account"><div><p id="identity"></p><p id="scope-context" class="muted"></p></div><button id="sign-out" type="button">Sign out</button></section>
     <p id="load-message" class="message" role="status" aria-live="polite"></p>
+    <p id="operation-message" class="message" role="status" aria-live="polite"></p>
     <button id="refresh" type="button">Refresh records</button>
-    <fieldset id="data-fields" disabled hidden>
+    <nav id="workspace-nav" class="workspace-nav" aria-label="Education sections" hidden></nav>
+    <fieldset id="data-fields" disabled hidden tabindex="-1">
       <legend class="sr-only">Education records</legend>
+      <section id="dashboard-section" data-workspace-view="dashboard"><h2 tabindex="-1">Your Education workspace</h2><p id="dashboard-intro"></p><div id="dashboard-stats" class="dashboard-stats"></div><div id="dashboard-tasks" class="dashboard-tasks"></div></section>
       <section id="catalog-section" hidden>
         <h2>Programs, locations and classes</h2>
         <p id="catalog-summary" class="muted"></p>
@@ -94,8 +102,9 @@
         <h2>Education access and roles</h2>
         <p>Approve an existing Portal account for this module. Other modules' permissions are unchanged.</p>
         <form id="role-form">
-          <label for="target-auth-user">Portal Auth User ID</label>
-          <input id="target-auth-user" required pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" placeholder="UUID from the Portal administrator">
+          <label for="target-auth-user">Module Auth User ID</label>
+          <input id="target-auth-user" required pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" placeholder="Existing Education account UUID">
+          <p class="muted">Use the verified account ID from the Education project. Portal identity mapping is managed separately.</p>
           <label for="assign-role">Education role</label><select id="assign-role" required></select>
           <label for="role-action">Action</label><select id="role-action" data-static><option value="grant">Grant role</option><option value="revoke">Revoke role</option></select>
           <button type="submit">Save role change</button>
@@ -156,6 +165,16 @@
         <div class="scroll"><table><caption>Visible class sessions</caption><thead><tr><th scope="col">Session</th><th scope="col">Date</th><th scope="col">Teacher</th></tr></thead><tbody id="sessions-body"></tbody></table></div>
       </section>
       <section id="student-attendance-section" hidden>
+        <div id="roster-section">
+          <h2>Class attendance register</h2>
+          <p>Choose your session, review the enrolled students, then save their attendance. No status is assumed.</p>
+          <label for="roster-session">Your class session</label><select id="roster-session"></select>
+          <div class="roster-actions"><button id="roster-present" type="button">Mark all present</button><button id="roster-save" type="button">Save changed attendance</button><button id="roster-discard" type="button" class="secondary">Discard unsaved choices</button></div>
+          <p id="roster-summary" class="message" role="status" aria-live="polite"></p>
+          <div class="scroll"><table><caption>Enrolled students for this session</caption><thead><tr><th scope="col">Student</th><th scope="col">Attendance status</th><th scope="col">Save result</th></tr></thead><tbody id="roster-body"></tbody></table></div>
+          <p class="muted">If saving is interrupted, review each student's result. Some records may already be saved. Refresh before retrying an unconfirmed save.</p>
+        </div>
+        <details id="single-attendance"><summary>Single-record entry and corrections</summary>
         <h2>Record student attendance</h2>
         <form id="student-attendance-form">
           <input id="student-record-id" type="hidden">
@@ -166,6 +185,7 @@
           <button type="button" class="secondary" data-cancel="student-attendance-form">Clear / cancel correction</button>
           <p id="student-attendance-message" class="message" role="status" aria-live="polite"></p>
         </form>
+        </details>
       </section>
       <section id="student-records-section" hidden>
         <h2>Student attendance</h2>
@@ -213,7 +233,7 @@
           <p id="staff-attendance-message" class="message" role="status" aria-live="polite"></p>
         </form>
       </section>
-      <section>
+      <section id="staff-records-section">
         <h2 id="staff-heading">My staff attendance</h2>
         <div class="scroll"><table><caption>Visible staff attendance</caption><thead><tr><th scope="col">Staff member</th><th scope="col">Date</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead><tbody id="staff-records"></tbody></table></div>
         <p id="staff-count" class="muted"></p>

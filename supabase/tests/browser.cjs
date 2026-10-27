@@ -74,6 +74,7 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
       assert.equal(calls.length, 0); checks++;
       await page.fill('#email', 'fictional@example.test'); await page.fill('#password', 'fictional-password');
       await page.click('#login-submit');
+      const openView=async name=>page.locator('#workspace-nav button[data-view="'+name+'"]').click();
       if (role === 'unlinked') {
         await page.getByText('Education access has not been approved. Ask your Education administrator for a role.', { exact: true }).waitFor();
         assert.equal(await page.locator('#data-fields').evaluate(node => node.disabled), true); checks++;
@@ -82,12 +83,13 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
         assert.equal(await page.locator('#data-fields').evaluate(node => node.disabled), true); checks++;
       } else {
         await page.getByText('Saved records loaded.', { exact: true }).waitFor();
-        assert.equal(await page.locator('#student-attendance-section').isVisible(), role === 'teacher'); checks++;
-        assert.equal(await page.locator('#staff-attendance-section').isVisible(), role === 'administrator'); checks++;
-        assert.equal(await page.locator('#students-section').isVisible(), role !== 'staff'); checks++;
+        assert.equal(await page.locator('#student-attendance-section').evaluate(node=>!node.hidden), role === 'teacher'); checks++;
+        assert.equal(await page.locator('#staff-attendance-section').evaluate(node=>!node.hidden), role === 'administrator'); checks++;
+        assert.equal(await page.locator('#students-section').evaluate(node=>!node.hidden), role !== 'staff'); checks++;
         assert.equal(await page.locator('#staff-records tr').count(), 1); checks++;
         assert.equal(await page.locator('.auth-backdrop').isVisible(), false); checks++;
         if (role !== 'staff') {
+          await openView('students');
           assert.equal(await page.locator('#students-body b').count(), 0); checks++;
           await page.fill('#student-number', 'S002'); await page.fill('#student-name', 'Second Student');
           if (role === 'administrator') await page.selectOption('#student-location',uid(7));
@@ -100,11 +102,13 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
           assert.equal(writes.at(-1).body.p_id, student.id); checks++;
         }
         if (role === 'teacher') {
+          await openView('sessions');
           await page.fill('#session-title', 'New lesson'); await page.fill('#session-date', '2026-10-28');
           await page.selectOption('#session-class',uid(10));
           await page.locator('#session-form button[type=submit]').click();
           await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
           assert.equal(writes.at(-1).body.p_class_id, uid(10)); checks++;
+          await openView('attendance');await page.locator('#single-attendance').evaluate(node=>node.open=true);
           await page.selectOption('#attendance-session', lesson.id); await page.selectOption('#attendance-student', student.id);
           await page.click('#student-attendance-submit');
           await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
@@ -120,6 +124,7 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
           assert.equal(await page.locator('#catalog-admin').isVisible(),false); checks++;
           assert.equal(await page.locator('#classes-body tr').count(),1); checks++;
           assert.equal(await page.locator('#enrollments-body tr').count(),1); checks++;
+          await openView('enrollment');
           await page.locator('#enrollments-body button').click();
           await page.selectOption('#enrollment-status','COMPLETED');
           await page.fill('#ended-on','2026-10-31');
@@ -128,6 +133,7 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
           assert.equal(writes.at(-1).rpc,'education_save_enrollment'); checks++;
           assert.equal(writes.at(-1).body.p_id,uid(11)); checks++;
           assert.equal(writes.at(-1).body.p_status,'COMPLETED'); checks++;
+          await openView('assessments');
           await page.selectOption('#assessment-class',uid(10));
           await page.selectOption('#assessment-subject',uid(12));
           await page.fill('#assessment-title','New practical test'); await page.fill('#assessment-date','2026-10-28');
@@ -157,18 +163,21 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
           assert.equal(await page.inputValue('#mark-revision'),'1'); checks++;
           failMark=false;
           failWrite = true;
+          await openView('attendance');
           await page.click('[data-cancel="student-attendance-form"]');
           await page.selectOption('#attendance-session', lesson.id); await page.selectOption('#attendance-student', student.id);
           await page.click('#student-attendance-submit');
-          await page.getByText(/This record already exists/).waitFor(); checks++;
+          await page.locator('#student-attendance-message').filter({hasText:'This record already exists'}).waitFor(); checks++;
         }
         if (role === 'administrator') {
+          await openView('staff');
           await page.selectOption('#attendance-employee', employee.id); await page.fill('#staff-date', '2026-10-27');
           await page.click('#staff-attendance-submit');
           await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
           assert.equal(writes.at(-1).rpc, 'education_save_staff_attendance'); checks++;
           assert.equal(writes.at(-1).body.p_employee_id, employee.id); checks++;
           assert.equal(await page.locator('#student-records button:visible').count(), 0); checks++;
+          await openView('administration');
           assert.equal(await page.locator('#roles-section').isVisible(), true); checks++;
           await page.fill('#target-auth-user', uid(8)); await page.selectOption('#assign-role', 'teacher');
           await page.locator('#role-form button[type=submit]').click();
@@ -181,6 +190,7 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
           await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
           assert.equal(writes.at(-1).body.p_grant, false); checks++;
           assert.equal(await page.locator('#role-audit-body tr').count(), 1); checks++;
+          await openView('classes');
           assert.equal(await page.locator('#catalog-admin').isVisible(),true); checks++;
           assert.equal(await page.locator('#assessment-write').isVisible(),false); checks++;
           await page.selectOption('#location-teacher',employee.id); await page.selectOption('#teacher-location',uid(7));

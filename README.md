@@ -2,7 +2,7 @@
 
 Module 02 of the Tzu Chi Mozambique System. Manage student profiles, class sessions, and student/staff attendance using module-local Supabase Auth and Education-specific roles while the separate-project Portal identity contract is being agreed.
 
-**Status:** the catalog/enrollment/assessment extension is implemented locally and requires migration 004 plus coordinated frontend deployment; it is not yet applied by this agent. The earlier TCMS RPC/access-control upgrade is implemented and locally tested. The user reports applying migrations 001–003. A read-only check confirms the access RPC exists and denies anonymous execution. Authenticated hosted acceptance testing and integration with the actual Portal remain pending. See [catalog upgrade steps](supabase/CATALOG_UPGRADE.md) for this release and [TCMS upgrade steps](supabase/TCMS_UPGRADE.md) for the earlier baseline.
+**Status:** the owner reports applying migrations 001–004, and read-only checks confirmed the access/catalog RPCs exist and reject anonymous execution. The workspace UX release is frontend-only and needs no new SQL. Hosted acceptance testing and the separate-project Portal identity contract remain pending. See [UI/UX release notes](docs/UI_UX_UPDATE.md), [catalog upgrade](supabase/CATALOG_UPGRADE.md), and [earlier access upgrade](supabase/TCMS_UPGRADE.md).
 
 ## Run locally
 
@@ -18,7 +18,7 @@ Open the local server in a browser. Use an existing module Supabase Auth account
 
 ## Architecture
 
-`index.html`, `styles.css`, `app.js`, and `catalog.js` contain the UI, styles, and behavior. The browser uses Supabase Auth plus authenticated RPCs under `/rest/v1/rpc/`; it never requests database tables directly. The Python server only serves files; records are stored remotely. The old `training_sessions`/`attendance_records` records are not used or migrated.
+`index.html`, `styles.css`, `app.js`, `catalog.js`, and `workspace.js` contain the UI, styles, and behavior. The browser uses Supabase Auth plus authenticated RPCs under `/rest/v1/rpc/`; it never requests database tables directly. The Python server only serves files; records are stored remotely. The old `training_sessions`/`attendance_records` records are not used or migrated.
 
 The Supabase URL and browser publishable key are constants in `app.js`; the app does not read environment variables. Publishable keys are intended for browser use. RLS stays enabled, browser table grants are revoked, and RPCs explicitly enforce identity, module membership, and operation permissions. Never put service-role keys or other privileged credentials in the frontend. Confirm this project is the team's agreed development project before changing configuration.
 
@@ -26,13 +26,19 @@ The Supabase URL and browser publishable key are constants in `app.js`; the app 
 
 The prepared migration-004 release adds Ndeja, Kura, Metuchira; Vocational Training and Cram School; Electricity, Mechanics, Sewing, Bakery; Cram grades 1–8 and shifts; enrollment; and 0–20 assessments. Each teacher has one assigned location, while administrators manage all three. Assigned teachers enter marks and administrators read them. Enrollment dates control attendance/mark eligibility. Corrections use mark revisions and audit history. See [catalog setup, API, and ER diagram](supabase/CATALOG_UPGRADE.md).
 
-Existing records are preserved. Administrators explicitly classify older students/sessions; no location is guessed. New classes and enrollments must be established before teaching workflows can write records. The current webpage requires index.html, app.js, catalog.js, styles.css, and assets/, and migration 004.
+Existing records are preserved. Administrators explicitly classify older students/sessions; no location is guessed. New classes and enrollments must be established before teaching workflows can write records. The current webpage requires index.html, app.js, catalog.js, workspace.js, styles.css, and assets/, and migration 004.
+
+## Workspace usability
+
+The signed-in interface has a role-based dashboard and separate Students, Classes, Enrollment, Sessions, Attendance, Assessments, Staff/My attendance, and Administration views. Tables support search, selected location/status filters, ten-row pagination, counts and empty states. The class attendance register saves changed students through existing authorized RPCs and shows individual outcomes. Refresh resolves unconfirmed saves before retry; sign-out clears drafts and stops subsequent writes. Login/recovery keep the supplied illustration and add accessible show/hide password controls.
+
+73 new stateful UX checks and 37 automated axe WCAG A/AA scans passed. Full legal compliance and WCAG conformance are not established by automated checks; see [scope, commands, and remaining reviews](docs/UI_UX_UPDATE.md).
 
 ## Illustrated sign-in screen
 
 Login and password recovery use the supplied Mozambique learning illustration as a full-screen, proportional cover image. Desktop forms sit on the right over the courtyard in a softly translucent warm-neutral card; mobile forms are centered and scroll on short screens. The illustration is hidden after sign-in and restored on sign-out. Authentication, validation, role gates, and navigation are unchanged.
 
-The local `assets/` directory contains responsive AVIF and WebP variants. The full-resolution AVIF is about 196 KB, approximately 93% smaller than the supplied PNG. See [image details](assets/README.md). Keep these assets alongside `index.html`, `styles.css`, and `app.js` when deploying.
+The local `assets/` directory contains responsive AVIF and WebP variants. The full-resolution AVIF is about 196 KB, approximately 93% smaller than the supplied PNG. See [image details](assets/README.md). Deploy these assets with index.html, styles.css, app.js, catalog.js, and workspace.js.
 
 Responsive verification covers desktop, laptop, ultrawide, tablet portrait/landscape, mobile portrait/landscape, a 320 px small screen, reduced keyboard-height simulation, recovery, and WebP fallback:
 
@@ -55,7 +61,7 @@ node supabase/tests/login-layout.cjs
 
 ## General portal integration
 
-Portal owns identity, account creation, passwords, status, and canonical personal information; Education owns module permissions. The built-in email/password and recovery screens currently use the module project’s local Auth accounts. Fernando’s updated architecture uses a separate Portal project: its identity-verification and account-mapping contract is pending. A Portal token must not be assumed valid in this project, and accounts must not be merged by matching email. Invitations and MFA belong to Portal. The adapter below currently accepts a session valid in this module project, after both deferred scripts have loaded. Cross-project exchange is not implemented:
+Portal owns identity, account creation, passwords, status, and canonical personal information; Education owns module permissions. The built-in email/password and recovery screens currently use the module project’s local Auth accounts. Fernando’s updated architecture uses a separate Portal project: its identity-verification and account-mapping contract is pending. A Portal token must not be assumed valid in this project, and accounts must not be merged by matching email. Invitations and MFA belong to Portal. The adapter below currently accepts a session valid in this module project, after all deferred scripts have loaded. Cross-project exchange is not implemented:
 
 ```js
 await window.educationPortal.setSession(portalSupabaseSession);

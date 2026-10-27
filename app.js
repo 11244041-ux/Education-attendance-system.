@@ -16,6 +16,9 @@ function emptyState() {
 function message(id, text, error = false) {
   el(id).textContent = text;
   el(id).classList.toggle('error', error);
+  if (['operation-message','login-message','recovery-message'].includes(id)) {
+    el(id).setAttribute('role',error ? 'alert' : 'status');el(id).setAttribute('aria-live',error ? 'assertive' : 'polite');
+  }
 }
 const isAdmin = () => state.roles.includes('administrator');
 const isTeacher = () => state.roles.includes('teacher');
@@ -43,6 +46,7 @@ async function transport(path, { method = 'GET', body, token, prefer } = {}) {
       ? 'This record already exists. Refresh and use Correct to change attendance.'
       : data?.message || data?.msg || data?.error_description || 'Request failed (' + response.status + ').');
     error.status = response.status;
+    error.code = data?.code;
     throw error;
   }
   return data;
@@ -50,6 +54,7 @@ async function transport(path, { method = 'GET', body, token, prefer } = {}) {
 
 function clearSession() {
   document.body.classList.add('auth-view');
+  if (typeof resetWorkspaceUI === 'function') resetWorkspaceUI();
   generation++;
   session = null;
   recoveryToken = null;
@@ -164,9 +169,13 @@ function tableRow(body, values, edit) {
     button.type = 'button'; button.textContent = edit.label; button.addEventListener('click', edit.run);
     cell.appendChild(button); row.appendChild(cell);
   }
+  const columns = el(body).closest('table').tHead?.rows[0]?.cells.length || values.length;
+  while (row.cells.length < columns) { const cell=document.createElement('td'); cell.textContent='—'; row.appendChild(cell); }
   el(body).appendChild(row);
 }
 function editAttendance(kind, record) {
+  if (typeof navigateWorkspace === 'function') navigateWorkspace(kind === 'student' ? 'attendance' : 'staff',false);
+  if (kind === 'student') el('single-attendance').open = true;
   el(kind + '-record-id').value = record.id;
   if (kind === 'student') {
     el('attendance-session').value = record.session_id;
@@ -179,6 +188,7 @@ function editAttendance(kind, record) {
   el(kind + '-status').value = record.status;
   el(kind + '-attendance-submit').textContent = 'Save correction';
   el(kind + '-attendance-form').scrollIntoView({ block: 'center' });
+  el(kind + '-status').focus({preventScroll:true});
   message(kind + '-attendance-message', 'Editing an existing record.');
 }
 function renderAttendance() {
@@ -208,7 +218,7 @@ function renderAttendance() {
 function render() {
   const profile = state.employee;
   el('identity').textContent = profile
-    ? profile.display_name + ' · ' + (state.roles.join(', ') || 'Education staff')
+    ? profile.display_name + ' · ' + (state.roles.map(role=>({administrator:'Administrator',teacher:'Teacher',staff:'Education staff'}[role]||role)).join(', ') || 'Education staff')
     : 'Education access awaits administrator approval.';
   el('data-fields').hidden = !state.allowed;
   const manager = managesStudents();
@@ -253,18 +263,21 @@ function render() {
   for (const row of state.roleAudit) tableRow('role-audit-body', [row.occurred_at, row.target_auth_user_id,
     row.role, row.action, row.actor_auth_user_id || row.source]);
   renderCatalog();
+  if (typeof renderWorkspaceUI === 'function') renderWorkspaceUI();
 }
 
 async function loadData() {
   if (busy || !session) return false;
   const epoch = generation;
   busy = true;
+  if (typeof updateBusyUI === 'function') updateBusyUI();
   el('data-fields').disabled = true;
   message('load-message', 'Loading records…');
   try {
     const access = await rpc('education_get_access');
     if (epoch !== generation) return false;
     if (!access.allowed) {
+      if (typeof resetWorkspaceUI === 'function') resetWorkspaceUI();
       state = emptyState(); render();
       message('load-message', 'Education access has not been approved. Ask your Education administrator for a role.');
       return false;
@@ -285,12 +298,13 @@ async function loadData() {
     ]);
     if (epoch !== generation) return false;
     state = { allowed: true, employee, roles, employees, students, sessions, studentAttendance, staffAttendance, roleCatalog, userRoles, roleAudit, catalog };
+    if (typeof workspaceDataRefreshed === 'function') workspaceDataRefreshed();
     render();
     message('load-message', employee ? 'Saved records loaded.' : 'An administrator must link your Education staff record before you can continue.', !employee);
     return !!employee;
   } catch (error) {
     if (epoch === generation) {
-      message('load-message', 'Could not load records: ' + error.message + ' Confirm the Education migrations are applied, then refresh.', true);
+      message('load-message', 'Could not load records: ' + error.message + ' Try Refresh records. Contact your administrator if this continues.', true);
       // Fail closed rather than leave controls enabled with stale roles or data.
       state = emptyState(); render();
     }
@@ -299,12 +313,14 @@ async function loadData() {
     if (epoch === generation) {
       busy = false;
       el('data-fields').disabled = !state.employee;
+      if (typeof updateBusyUI === 'function') updateBusyUI();
     }
   }
 }
 
 function resetForm(id) {
   el(id).reset();
+  if (typeof clearFormErrors === 'function') clearFormErrors(el(id));
   for (const field of el(id).querySelectorAll('input[type=hidden]')) field.value = '';
   const labels = { 'student-form': ['student-submit', 'Save student'],
     'student-attendance-form': ['student-attendance-submit', 'Save student attendance'],
@@ -318,19 +334,26 @@ function bindSave(formId, messageId, action) {
     if (busy || !state.employee) return;
     const epoch = generation;
     busy = true; el('data-fields').disabled = true;
+    if (typeof updateBusyUI === 'function') updateBusyUI();
+    message('operation-message','');
     message(messageId, 'Saving…');
     try {
       await action();
       if (epoch !== generation) return;
       resetForm(formId);
       message(messageId, 'Saved.');
+      message('operation-message','Saved successfully. Refreshing records…');
       busy = false;
-      await loadData();
+      const refreshed = await loadData();
+      if (epoch === generation) message('operation-message',refreshed ? 'Saved successfully. Records are up to date.' : 'Saved successfully, but records could not be refreshed. Do not submit again; use Refresh records.');
     } catch (error) {
-      if (epoch === generation) message(messageId,
-        'Save could not be confirmed: ' + error.message + ' Refresh before retrying.', true);
+      if (epoch === generation) {
+        const rejected = ['23505','23514','23503','23502','42501','40001','22023','P0002'].includes(error.code);
+        const text=(rejected ? 'Not saved: ' : 'Save could not be confirmed: ') + error.message + ' Refresh before retrying.';
+        message(messageId,text,true); message('operation-message',text,true);
+      }
     } finally {
-      if (epoch === generation) { busy = false; el('data-fields').disabled = !state.employee; }
+      if (epoch === generation) { busy = false; el('data-fields').disabled = !state.employee; if (typeof updateBusyUI === 'function') updateBusyUI(); }
     }
   });
 }
@@ -379,7 +402,7 @@ for (const button of document.querySelectorAll('[data-cancel]')) button.addEvent
   resetForm(button.dataset.cancel);
 });
 el('session-filter').addEventListener('change', renderAttendance);
-el('refresh').addEventListener('click', loadData);
+el('refresh').addEventListener('click', () => typeof refreshWorkspace === 'function' ? refreshWorkspace() : loadData());
 el('login-form').addEventListener('submit', async event => {
   event.preventDefault();
   const epoch = generation;
