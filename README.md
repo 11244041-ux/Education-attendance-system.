@@ -2,7 +2,7 @@
 
 Module 02 of the Tzu Chi Mozambique System. Manage student profiles, class sessions, and student/staff attendance using the Portal's shared Supabase Auth identity and Education-specific roles.
 
-**Status:** the TCMS RPC/access-control upgrade is implemented and locally tested. Migrations 001/002 were reported applied by the user; migration 003 still needs coordinated development-project application and frontend deployment. Hosted acceptance testing and integration with the actual Portal remain pending. See [TCMS upgrade steps](supabase/TCMS_UPGRADE.md).
+**Status:** the TCMS RPC/access-control upgrade is implemented and locally tested. The user reports applying migrations 001–003. A read-only check confirms the access RPC exists and denies anonymous execution. Authenticated hosted acceptance testing and integration with the actual Portal remain pending. See [TCMS upgrade steps](supabase/TCMS_UPGRADE.md).
 
 ## Run locally
 
@@ -60,7 +60,7 @@ See [INTEGRATION.md](INTEGRATION.md) for the handoff and [SDS-TCMS2-Education-W0
 
 The meeting record calls for centralized Portal personal information. Existing Education profiles are preserved as a compatibility bridge for attendance IDs; newly approved accounts receive a generic bridge label instead of copied personal information. Canonical display names/account status must be integrated when the Portal owner supplies its profile/API contract. Existing tables are not destructively renamed to the proposed `Tbl02...` convention before team approval.
 
-The user reports applying migrations 001/002, testing own-profile isolation, and assigning test administrator/teacher roles. Prior read-only checks confirmed those tables deny anonymous access. Migration 003 has not been applied by this agent; the current frontend requires its RPCs. Do not deploy without coordinating that database upgrade. Full Portal acceptance tests need the Portal owner and real test sessions.
+The user reports applying migrations 001–003, testing own-profile isolation, and assigning test administrator/teacher roles. Read-only checks confirmed the earlier tables deny anonymous access and the migration-003 access RPC now exists and denies anonymous execution. The migrations were run by the user, not this agent. Full Portal acceptance tests still need the Portal owner and real test sessions.
 
 - 34 historical migration-002 database checks and 83 current TCMS RPC/database checks passed with simulated Supabase Auth identities.
 - 85 browser checks passed with mocked APIs, including role grants/revocation review, audit display, RPC-only requests, access gating, attendance/profile workflows, portal handoff, token refresh, and password recovery.

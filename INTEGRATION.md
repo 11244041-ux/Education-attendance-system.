@@ -14,7 +14,7 @@ This repository is **Module 02: Education and Vocational Training** in the Tzu C
 
 ## Required deployment action
 
-The user reports applying migrations 001/002. Migration 003 is prepared and locally tested, not applied to the hosted project by this agent. Follow [TCMS_UPGRADE.md](supabase/TCMS_UPGRADE.md) and coordinate database application with deployment of the RPC-based webpage. Old table-based clients stop working after direct grants are revoked.
+The user reports applying migrations 001–003. The migration-003 access RPC now exists and rejects anonymous execution in a read-only check. The user applied the SQL; this agent is deploying the matching RPC-based webpage. Follow [TCMS_UPGRADE.md](supabase/TCMS_UPGRADE.md) for future installations. Authenticated acceptance testing remains pending; do not rerun already-applied migrations.
 
 ## Portal owner handoff
 
