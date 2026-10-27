@@ -1,10 +1,7 @@
 // Run with `node supabase/tests/browser.cjs`; uses mocked APIs, never the live database.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const http = require('node:http');
-const fs = require('node:fs');
-const path = require('node:path');
-const root = path.join(__dirname, '../..');
+const { startStaticServer } = require('./static-server.cjs');
 const uid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const employee = { id: uid(1), auth_user_id: uid(2), display_name: 'Fictional Staff', is_teacher: true };
 const student = { id: uid(3), student_number: 'S001', display_name: '<b>Fictional Student</b>' };
@@ -14,13 +11,7 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
 
 (async () => {
   let checks = 0;
-  const server = http.createServer((req, res) => {
-    const files = { '/': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/styles.css': ['styles.css', 'text/css'] };
-    const file = files[req.url];
-    if (!file) { res.writeHead(404); res.end(); return; }
-    res.setHeader('Content-Type', file[1]); res.end(fs.readFileSync(path.join(root, file[0])));
-  });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const { server } = await startStaticServer();
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium', headless: true, args: ['--no-sandbox'] });
   try {
     for (const role of ['teacher', 'administrator', 'staff', 'unlinked', 'broken']) {
@@ -78,6 +69,7 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
         assert.equal(await page.locator('#staff-attendance-section').isVisible(), role === 'administrator'); checks++;
         assert.equal(await page.locator('#students-section').isVisible(), role !== 'staff'); checks++;
         assert.equal(await page.locator('#staff-records tr').count(), 1); checks++;
+        assert.equal(await page.locator('.auth-backdrop').isVisible(), false); checks++;
         if (role !== 'staff') {
           assert.equal(await page.locator('#students-body b').count(), 0); checks++;
           await page.fill('#student-number', 'S002'); await page.fill('#student-name', 'Second Student');
@@ -139,6 +131,7 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
       await page.click('#sign-out');
       await page.locator('#login-section').waitFor();
       assert.equal(await page.locator('#staff-records tr').count(), 0); checks++;
+      assert.equal(await page.locator('.auth-backdrop').isVisible(), true); checks++;
       assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0); checks++;
       assert.deepEqual(errors, []); checks++;
       await page.close();

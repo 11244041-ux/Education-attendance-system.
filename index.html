@@ -2,17 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#dcecf5">
   <title>TCMS · Education and Vocational Training</title>
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
-<body>
+<body class="auth-view">
+<div class="auth-backdrop" aria-hidden="true">
+  <picture>
+    <source type="image/avif" srcset="assets/education-campus-1100.avif 1100w, assets/education-campus-1672.avif 1672w" sizes="(min-aspect-ratio: 1672/941) 100vw, 178svh">
+    <img src="assets/education-campus-1672.webp" srcset="assets/education-campus-1100.webp 1100w, assets/education-campus-1672.webp 1672w" sizes="(min-aspect-ratio: 1672/941) 100vw, 178svh" width="1672" height="941" alt="" fetchpriority="high" decoding="async">
+  </picture>
+</div>
 <main>
-  <header><p>Tzu Chi Mozambique System · Module 02</p><h1>Education and Vocational Training</h1><p>Student profiles, class sessions, and student and staff attendance.</p></header>
-  <section id="login-section">
-    <h2>Staff sign in</h2>
-    <p>Use your company account. Access is based on your Education staff profile and assigned roles.</p>
+  <header id="page-header"><p>Tzu Chi Mozambique System · Module 02</p><h1>Education and Vocational Training</h1><p>Student profiles, class sessions, and student and staff attendance.</p></header>
+  <section id="login-section" class="auth-card" aria-labelledby="login-heading">
+    <div class="auth-brand"><span class="auth-brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M4 8c5-2 9-1 12 2 3-3 7-4 12-2v17c-5-2-9-1-12 2-3-3-7-4-12-2V8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M16 10v17M8 13l4 1M8 18l4 1M20 14l4-1M20 19l4-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><p>TCMS<span>Education &amp; Vocational Training</span></p></div>
+    <p class="auth-eyebrow">LEARNING TOGETHER. GROWING TOGETHER.</p>
+    <h2 id="login-heading">Staff sign in</h2>
+    <p class="auth-intro">Welcome back. Sign in with your company account to access your Education workspace.</p>
     <form id="login-form">
       <label for="email">Email</label><input id="email" type="email" autocomplete="username" required>
       <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required>
@@ -20,10 +29,12 @@
       <button id="forgot-password" class="secondary" type="button">Forgot password?</button>
     </form>
     <p id="login-message" class="message" role="status" aria-live="polite"></p>
+    <p class="auth-footnote">Tzu Chi Mozambique System · Module 02</p>
   </section>
-  <section id="recovery-section" hidden>
-    <h2>Set a new password</h2>
-    <p>Choose a new password for your existing staff account. Your employee profile and roles will stay linked.</p>
+  <section id="recovery-section" class="auth-card" aria-labelledby="recovery-heading" hidden>
+    <p class="auth-eyebrow">TCMS · EDUCATION &amp; VOCATIONAL TRAINING</p>
+    <h2 id="recovery-heading">Set a new password</h2>
+    <p class="auth-intro">Choose a new password for your existing staff account. Your employee profile and roles will stay linked.</p>
     <form id="recovery-form">
       <label for="new-password">New password</label>
       <input id="new-password" type="password" autocomplete="new-password" minlength="8" required>

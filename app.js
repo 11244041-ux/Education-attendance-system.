@@ -49,6 +49,7 @@ async function transport(path, { method = 'GET', body, token, prefer } = {}) {
 }
 
 function clearSession() {
+  document.body.classList.add('auth-view');
   generation++;
   session = null;
   recoveryToken = null;
@@ -141,6 +142,7 @@ async function setSession(tokens) {
   };
   el('login-section').hidden = true;
   el('workspace').hidden = false;
+  document.body.classList.remove('auth-view');
   await loadData();
 }
 

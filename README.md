@@ -22,6 +22,20 @@ Open the local server in a browser. Use an existing Portal/Supabase Auth account
 
 The Supabase URL and browser publishable key are constants in `app.js`; the app does not read environment variables. Publishable keys are intended for browser use. RLS stays enabled, browser table grants are revoked, and RPCs explicitly enforce identity, module membership, and operation permissions. Never put service-role keys or other privileged credentials in the frontend. Confirm this project is the team's agreed development project before changing configuration.
 
+## Illustrated sign-in screen
+
+Login and password recovery use the supplied Mozambique learning illustration as a full-screen, proportional cover image. Desktop forms sit on the right over the courtyard in a softly translucent warm-neutral card; mobile forms are centered and scroll on short screens. The illustration is hidden after sign-in and restored on sign-out. Authentication, validation, role gates, and navigation are unchanged.
+
+The local `assets/` directory contains responsive AVIF and WebP variants. The full-resolution AVIF is about 196 KB, approximately 93% smaller than the supplied PNG. See [image details](assets/README.md). Keep these assets alongside `index.html`, `styles.css`, and `app.js` when deploying.
+
+Responsive verification covers desktop, laptop, ultrawide, tablet portrait/landscape, mobile portrait/landscape, a 320 px small screen, reduced keyboard-height simulation, recovery, and WebP fallback:
+
+```sh
+node supabase/tests/login-layout.cjs
+```
+
+101 responsive checks passed. Physical-device keyboard and Safari behavior still need manual testing; automated viewport reduction does not open a real software keyboard.
+
 ## Roles and workflows
 
 - Administrators and teachers create and edit student profiles.
@@ -63,7 +77,7 @@ The meeting record calls for centralized Portal personal information. Existing E
 The user reports applying migrations 001–003, testing own-profile isolation, and assigning test administrator/teacher roles. Read-only checks confirmed the earlier tables deny anonymous access and the migration-003 access RPC now exists and denies anonymous execution. The migrations were run by the user, not this agent. Full Portal acceptance tests still need the Portal owner and real test sessions.
 
 - 34 historical migration-002 database checks and 83 current TCMS RPC/database checks passed with simulated Supabase Auth identities.
-- 85 browser checks passed with mocked APIs, including role grants/revocation review, audit display, RPC-only requests, access gating, attendance/profile workflows, portal handoff, token refresh, and password recovery.
+- 93 browser checks passed with mocked APIs, including role grants/revocation review, audit display, RPC-only requests, access gating, attendance/profile workflows, portal handoff, token refresh, password recovery, and illustrated-auth/workspace transitions.
 - These tests do not establish authenticated behavior in the hosted project. No real employee credentials were used and no hosted records were changed.
 - Refresh still downloads all permitted records before filtering locally; larger deployments should add server-side filtering/pagination.
 - Portal embedding, real Auth-token lifecycle, and hosted allowed/denied requests require end-to-end acceptance tests.
