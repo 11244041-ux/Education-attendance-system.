@@ -3,239 +3,91 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Training Attendance System</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; background: #f3f6fa; color: #18283c; font: 16px/1.6 system-ui, sans-serif; }
-    main { max-width: 1080px; margin: auto; padding: 36px 20px; }
-    h1 { font-size: clamp(26px, 4vw, 36px); margin: 0; line-height: 1.2; }
-    h2 { font-size: 21px; margin: 0 0 14px; }
-    header p { color: #506176; margin: 12px 0 22px; }
-    .forms { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    section { background: white; border: 1px solid #dce3ec; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
-    label { display: block; font-weight: 600; margin: 10px 0 5px; }
-    input, select, button { font: inherit; border-radius: 6px; }
-    input, select { width: 100%; padding: 10px; border: 1px solid #a7b4c5; background: white; color: #18283c; }
-    button { padding: 10px 18px; border: 0; background: #175b9b; color: white; cursor: pointer; margin-top: 18px; }
-    button:disabled { opacity: .55; cursor: wait; }
-    :focus-visible { outline: 3px solid #db9200; outline-offset: 3px; }
-    .toolbar { display: flex; gap: 20px; align-items: end; justify-content: space-between; }
-    .toolbar > div { flex: 1; max-width: 480px; }
-    .scroll { overflow-x: auto; }
-    table { border-collapse: collapse; width: 100%; margin-top: 15px; text-align: left; }
-    th, td { padding: 11px 12px; border-bottom: 1px solid #e0e6ee; }
-    th { background: #edf3f9; font-weight: 600; white-space: nowrap; }
-    td { overflow-wrap: anywhere; }
-    .message { min-height: 26px; margin: 10px 0; color: #235b3e; }
-    .error { color: #a51c30; }
-    .muted, footer { color: #506176; font-size: 14px; }
-    @media (max-width: 650px) { .forms { grid-template-columns: 1fr; gap: 0; } section { padding: 18px; } .toolbar { flex-wrap: wrap; } }
-  </style>
+  <title>Education Department</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
 </head>
 <body>
 <main>
-  <header>
-    <h1>Training Attendance System</h1>
-    <p>Create training sessions, record attendance, and view participants by session.</p>
-  </header>
-  <p class="muted">University demonstration · Use fictional names only. Visitors can view and add records.</p>
-  <div class="forms">
-    <section>
-      <h2>Add a training session</h2>
-      <form id="session-form">
-        <label for="title">Session name</label>
-        <input id="title" name="title" required maxlength="120" placeholder="e.g. Teamwork Workshop">
-        <label for="date">Session date</label>
-        <input id="date" name="date" type="date" required>
-        <button type="submit">Save session</button>
-        <p id="session-message" class="message" role="status" aria-live="polite"></p>
-      </form>
-    </section>
-    <section>
-      <h2>Record attendance</h2>
-      <form id="attendance-form">
-        <fieldset id="attendance-fields" disabled style="border:0;padding:0;margin:0;min-width:0">
-          <label for="session-id">Training session</label>
-          <select id="session-id" name="session_id" required><option value="">Loading sessions…</option></select>
-          <label for="participant">Participant name</label>
-          <input id="participant" name="participant" required maxlength="100" placeholder="Fictional participant name">
-          <label for="status">Attendance status</label>
-          <select id="status" name="status"><option>Present</option><option>Absent</option><option>Late</option></select>
-          <button type="submit">Save attendance</button>
-        </fieldset>
-        <p id="attendance-message" class="message" role="status" aria-live="polite"></p>
-      </form>
-    </section>
-  </div>
-  <section>
-    <h2>Training sessions</h2>
-    <div class="scroll"><table>
-      <thead><tr><th scope="col">Session ID</th><th scope="col">Session name</th><th scope="col">Date</th></tr></thead>
-      <tbody id="sessions-body"></tbody>
-    </table></div>
-    <p id="sessions-empty" class="muted">Loading sessions…</p>
+  <header><h1>Education Department</h1><p>Student profiles, class sessions, and student and staff attendance.</p></header>
+  <section id="login-section">
+    <h2>Staff sign in</h2>
+    <p>Use your company account. Access is based on your Education staff profile and assigned roles.</p>
+    <form id="login-form">
+      <label for="email">Email</label><input id="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required>
+      <button id="login-submit" type="submit">Sign in</button>
+    </form>
+    <p id="login-message" class="message" role="status" aria-live="polite"></p>
   </section>
-  <section>
-    <h2>Attendance records</h2>
-    <div class="toolbar">
-      <div><label for="filter">View attendance for</label><select id="filter"><option value="">All sessions</option></select></div>
-      <button id="refresh" type="button">Refresh records</button>
-    </div>
+  <div id="workspace" hidden>
+    <section class="toolbar"><p id="identity"></p><button id="sign-out" type="button">Sign out</button></section>
     <p id="load-message" class="message" role="status" aria-live="polite"></p>
-    <div class="scroll"><table>
-      <thead><tr><th scope="col">Record ID</th><th scope="col">Session</th><th scope="col">Date</th><th scope="col">Participant</th><th scope="col">Status</th></tr></thead>
-      <tbody id="records-body"></tbody>
-    </table></div>
-    <p id="records-count" class="muted"></p>
-  </section>
-  <footer>Phase One · Training Attendance · Fictional demonstration data by <i>Feniasse Feliciano Feniasse</i> 費尼斯n 11244041 </footer>
+    <button id="refresh" type="button">Refresh records</button>
+    <fieldset id="data-fields" disabled>
+      <legend class="sr-only">Education records</legend>
+      <section id="students-section" hidden>
+        <h2>Student profiles</h2>
+        <form id="student-form">
+          <input id="student-id" type="hidden">
+          <label for="student-number">Student number</label><input id="student-number" maxlength="60" required>
+          <label for="student-name">Student name</label><input id="student-name" maxlength="120" required>
+          <button id="student-submit" type="submit">Save student</button>
+          <button type="button" class="secondary" data-cancel="student-form">Clear / cancel edit</button>
+          <p id="student-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+        <div class="scroll"><table><caption>Students</caption><thead><tr><th scope="col">Student number</th><th scope="col">Name</th><th scope="col">Action</th></tr></thead><tbody id="students-body"></tbody></table></div>
+      </section>
+      <section id="sessions-section" hidden>
+        <h2>Class sessions</h2>
+        <form id="session-form">
+          <label for="session-title">Session name</label><input id="session-title" maxlength="120" required>
+          <label for="session-date">Date</label><input id="session-date" type="date" required>
+          <label for="session-teacher">Assigned teacher</label><select id="session-teacher" required></select>
+          <p class="muted">The assigned staff member must have the teacher role to record student attendance.</p>
+          <button type="submit">Save session</button>
+          <p id="session-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+        <div class="scroll"><table><caption>Visible class sessions</caption><thead><tr><th scope="col">Session</th><th scope="col">Date</th><th scope="col">Teacher</th></tr></thead><tbody id="sessions-body"></tbody></table></div>
+      </section>
+      <section id="student-attendance-section" hidden>
+        <h2>Record student attendance</h2>
+        <form id="student-attendance-form">
+          <input id="student-record-id" type="hidden">
+          <label for="attendance-session">Your class session</label><select id="attendance-session" required></select>
+          <label for="attendance-student">Student</label><select id="attendance-student" required></select>
+          <label for="student-status">Status</label><select id="student-status" required><option>Present</option><option>Absent</option><option>Late</option></select>
+          <button id="student-attendance-submit" type="submit">Save student attendance</button>
+          <button type="button" class="secondary" data-cancel="student-attendance-form">Clear / cancel correction</button>
+          <p id="student-attendance-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+      <section id="student-records-section" hidden>
+        <h2>Student attendance</h2>
+        <label for="session-filter">Filter by class session</label><select id="session-filter"></select>
+        <div class="scroll"><table><caption>Visible student attendance</caption><thead><tr><th scope="col">Session</th><th scope="col">Date</th><th scope="col">Student</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead><tbody id="student-records"></tbody></table></div>
+        <p id="student-count" class="muted"></p>
+      </section>
+      <section id="staff-attendance-section" hidden>
+        <h2>Record Education staff attendance</h2>
+        <form id="staff-attendance-form">
+          <input id="staff-record-id" type="hidden">
+          <label for="attendance-employee">Staff member</label><select id="attendance-employee" required></select>
+          <label for="staff-date">Attendance date</label><input id="staff-date" type="date" required>
+          <label for="staff-status">Status</label><select id="staff-status" required><option>Present</option><option>Absent</option><option>Late</option></select>
+          <button id="staff-attendance-submit" type="submit">Save staff attendance</button>
+          <button type="button" class="secondary" data-cancel="staff-attendance-form">Clear / cancel correction</button>
+          <p id="staff-attendance-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+      <section>
+        <h2 id="staff-heading">My staff attendance</h2>
+        <div class="scroll"><table><caption>Visible staff attendance</caption><thead><tr><th scope="col">Staff member</th><th scope="col">Date</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead><tbody id="staff-records"></tbody></table></div>
+        <p id="staff-count" class="muted"></p>
+      </section>
+    </fieldset>
+  </div>
+  <footer>Education department prototype · Use fictional data until your team completes deployment and access testing.</footer>
 </main>
-<script>
-// This publishable key is intended for browser use. Database policies control access.
-const SUPABASE_URL = 'https://stzxapveaocuzbidpfng.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_C1RFQbseyrN2YRnbNZENrQ_h9oHlVL4';
-const el = id => document.getElementById(id);
-let attendance = [];
-let loading = false;
-
-function message(id, text, error = false) {
-  el(id).textContent = text;
-  el(id).classList.toggle('error', error);
-}
-
-// GET reads data; POST inserts data through Supabase's REST API.
-async function request(path, data) {
-  const response = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
-    method: data ? 'POST' : 'GET',
-    headers: {
-      apikey: SUPABASE_KEY,
-      'Content-Type': 'application/json',
-      ...(data ? { Prefer: 'return=representation' } : {})
-    },
-    ...(data ? { body: JSON.stringify(data) } : {}),
-    signal: AbortSignal.timeout(20000)
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.message || 'Database request failed.');
-  return result;
-}
-
-// Load every page, including when the dataset grows beyond one API response.
-async function readAll(query) {
-  const result = [];
-  for (let offset = 0; ; ) {
-    const page = await request(query + '&limit=500&offset=' + offset);
-    result.push(...page);
-    if (!page.length) return result;
-    offset += page.length;
-  }
-}
-
-// textContent displays entered names as text rather than interpreting them as HTML.
-function addRow(body, values) {
-  const row = document.createElement('tr');
-  for (const value of values) {
-    const cell = document.createElement('td');
-    cell.textContent = value ?? '';
-    row.appendChild(cell);
-  }
-  body.appendChild(row);
-}
-
-function showAttendance() {
-  const selected = el('filter').value;
-  const records = attendance.filter(record => !selected || String(record.session_id) === selected);
-  el('records-body').replaceChildren();
-  for (const record of records) {
-    addRow(el('records-body'), [record.id, record.training_sessions?.title,
-      record.training_sessions?.session_date, record.participant_name, record.status]);
-  }
-  el('records-count').textContent = records.length ? records.length + ' attendance record(s).' : 'No attendance records for this selection.';
-}
-
-async function loadData() {
-  if (loading) return false;
-  loading = true;
-  el('refresh').disabled = true;
-  message('load-message', 'Loading saved records…');
-  try {
-    const [sessions, records] = await Promise.all([
-      readAll('training_sessions?select=id,title,session_date&order=id'),
-      // The nested selection uses the foreign key to join the two tables.
-      readAll('attendance_records?select=id,session_id,participant_name,status,training_sessions(title,session_date)&order=id')
-    ]);
-    const selectedSession = el('session-id').value;
-    const selectedFilter = el('filter').value;
-    el('session-id').replaceChildren(new Option('Choose a session', ''));
-    el('filter').replaceChildren(new Option('All sessions', ''));
-    el('sessions-body').replaceChildren();
-    for (const session of sessions) {
-      const label = session.title + ' · ' + session.session_date + ' · #' + session.id;
-      el('session-id').add(new Option(label, session.id));
-      el('filter').add(new Option(label, session.id));
-      addRow(el('sessions-body'), [session.id, session.title, session.session_date]);
-    }
-    el('session-id').value = sessions.some(s => String(s.id) === selectedSession) ? selectedSession : '';
-    el('filter').value = sessions.some(s => String(s.id) === selectedFilter) ? selectedFilter : '';
-    el('attendance-fields').disabled = sessions.length === 0;
-    el('sessions-empty').textContent = sessions.length ? '' : 'No sessions yet. Add a session above to begin.';
-    attendance = records;
-    showAttendance();
-    message('load-message', 'Saved records loaded.');
-    return true;
-  } catch (error) {
-    message('load-message', 'Could not refresh records: ' + error.message + ' Check your connection and Supabase read policies, then try Refresh records.', true);
-    el('sessions-empty').textContent = 'The list may be incomplete or out of date until refresh succeeds.';
-    return false;
-  } finally {
-    loading = false;
-    el('refresh').disabled = false;
-  }
-}
-
-el('session-form').addEventListener('submit', async event => {
-  event.preventDefault();
-  const title = el('title').value.trim();
-  if (!title) return message('session-message', 'Enter a session name, not only spaces.', true);
-  if (loading) return message('session-message', 'Wait for records to finish loading, then save.');
-  const button = event.currentTarget.querySelector('button');
-  button.disabled = true;
-  message('session-message', 'Saving…');
-  try {
-    const saved = await request('training_sessions', { title, session_date: el('date').value });
-    el('session-form').reset();
-    message('session-message', 'Session saved.');
-    if (await loadData()) el('session-id').value = String(saved[0].id);
-  } catch (error) {
-    message('session-message', 'Save could not be confirmed: ' + error.message + ' Refresh records before retrying to avoid duplicates.', true);
-  } finally { button.disabled = false; }
-});
-
-el('attendance-form').addEventListener('submit', async event => {
-  event.preventDefault();
-  const name = el('participant').value.trim();
-  if (!name) return message('attendance-message', 'Enter a participant name, not only spaces.', true);
-  if (loading) return message('attendance-message', 'Wait for records to finish loading, then save.');
-  const button = event.currentTarget.querySelector('button');
-  button.disabled = true;
-  message('attendance-message', 'Saving…');
-  try {
-    const sessionId = el('session-id').value;
-    await request('attendance_records', {
-      session_id: Number(sessionId), participant_name: name, status: el('status').value
-    });
-    el('participant').value = '';
-    el('filter').value = sessionId;
-    message('attendance-message', 'Attendance saved.');
-    await loadData();
-  } catch (error) {
-    message('attendance-message', 'Save could not be confirmed: ' + error.message + ' Refresh records before retrying to avoid duplicates.', true);
-  } finally { button.disabled = false; }
-});
-
-el('filter').addEventListener('change', showAttendance);
-el('refresh').addEventListener('click', loadData);
-loadData();
-</script>
 </body>
 </html>
