@@ -11,7 +11,7 @@ let busy = false;
 let recoveryToken = null;
 let state = emptyState();
 function emptyState() {
-  return { allowed: false, employee: null, roles: [], employees: [], students: [], sessions: [], studentAttendance: [], staffAttendance: [], roleCatalog: [], userRoles: [], roleAudit: [] };
+  return { allowed: false, employee: null, roles: [], employees: [], students: [], sessions: [], studentAttendance: [], staffAttendance: [], roleCatalog: [], userRoles: [], roleAudit: [], catalog: {} };
 }
 function message(id, text, error = false) {
   el(id).textContent = text;
@@ -60,12 +60,12 @@ function clearSession() {
   el('login-section').hidden = false;
   el('recovery-section').hidden = true;
   el('identity').textContent = '';
-  for (const id of ['students-body', 'sessions-body', 'student-records', 'staff-records', 'user-roles-body', 'role-audit-body']) el(id).replaceChildren();
+  for (const id of ['students-body', 'sessions-body', 'student-records', 'staff-records', 'user-roles-body', 'role-audit-body', 'classes-body', 'enrollments-body', 'assessments-body', 'marks-body', 'mark-history-body', 'teacher-locations-body']) el(id).replaceChildren();
   el('data-fields').hidden = true;
   for (const form of document.querySelectorAll('form')) form.reset();
   for (const field of document.querySelectorAll('input[type=hidden]')) field.value = '';
-  for (const select of document.querySelectorAll('#workspace select:not(#student-status):not(#staff-status):not(#role-action)')) select.replaceChildren();
-  for (const id of ['load-message', 'student-message', 'session-message', 'student-attendance-message', 'staff-attendance-message', 'role-message']) message(id, '');
+  for (const select of document.querySelectorAll('#workspace select:not([data-static])')) select.replaceChildren();
+  for (const element of document.querySelectorAll('#workspace .message')) { element.textContent = ''; element.classList.remove('error'); }
 }
 
 async function accessToken() {
@@ -116,10 +116,10 @@ async function rpc(name, body = {}) {
     throw error;
   }
 }
-async function readAll(resource) {
+async function readAll(resource, domain = false) {
   const result = [];
   for (let offset = 0; ; ) {
-    const rows = await rpc('education_list_records', { p_resource: resource, p_limit: 500, p_offset: offset });
+    const rows = await rpc(domain ? 'education_domain_list' : 'education_list_records', { p_resource: resource, p_limit: 500, p_offset: offset });
     if (!Array.isArray(rows)) throw new Error('The database returned an unexpected response.');
     result.push(...rows);
     if (!rows.length) return result;
@@ -170,6 +170,7 @@ function editAttendance(kind, record) {
   el(kind + '-record-id').value = record.id;
   if (kind === 'student') {
     el('attendance-session').value = record.session_id;
+    updateAttendanceStudents();
     el('attendance-student').value = record.student_id;
   } else {
     el('attendance-employee').value = record.employee_id;
@@ -194,7 +195,7 @@ function renderAttendance() {
       label: 'Correct', run: () => editAttendance('student', row)
     });
     el('student-records').lastElementChild.lastElementChild.hidden =
-      !isTeacher() || lesson?.teacher_id !== state.employee?.id;
+      !isTeacher() || lesson?.teacher_id !== state.employee?.id || !catalogCanTeach(lesson?.class_id);
   }
   el('student-count').textContent = records.length + ' student attendance record(s).';
   el('staff-records').replaceChildren();
@@ -217,11 +218,14 @@ function render() {
   el('roles-section').hidden = !isAdmin();
   el('staff-heading').textContent = isAdmin() ? 'Education staff attendance' : 'My staff attendance';
   el('students-body').replaceChildren();
-  for (const student of state.students) tableRow('students-body', [student.student_number, student.display_name], {
+  for (const student of state.students) tableRow('students-body', [student.student_number, student.display_name,
+    catalogFind('locations',student.location_id)?.name || 'Needs location review',student.active ? 'Active' : 'Inactive'], {
     label: 'Edit', run: () => {
       el('student-id').value = student.id;
       el('student-number').value = student.student_number;
       el('student-name').value = student.display_name;
+      el('student-location').value = student.location_id || '';
+      el('student-active').value = String(student.active ?? true);
       el('student-submit').textContent = 'Save changes';
       el('student-name').focus();
     }
@@ -229,9 +233,6 @@ function render() {
   el('sessions-body').replaceChildren();
   const employeeName = id => state.employees.find(row => row.id === id)?.display_name || id;
   for (const lesson of state.sessions) tableRow('sessions-body', [lesson.title, lesson.session_date, employeeName(lesson.teacher_id)]);
-  choices('session-teacher', isAdmin() ? state.employees.filter(row => row.is_teacher) : profile ? [profile] : [], r => r.display_name, 'Choose assigned teacher');
-  if (!isAdmin() && profile) el('session-teacher').value = profile.id;
-  el('session-teacher').disabled = !isAdmin();
   choices('attendance-session', state.sessions.filter(r => r.teacher_id === profile?.id), r => r.title + ' · ' + r.session_date, 'Choose your class session');
   choices('attendance-student', state.students, r => r.display_name + ' · ' + r.student_number, 'Choose student');
   choices('attendance-employee', state.employees, r => r.display_name, 'Choose staff member');
@@ -251,6 +252,7 @@ function render() {
   el('role-audit-body').replaceChildren();
   for (const row of state.roleAudit) tableRow('role-audit-body', [row.occurred_at, row.target_auth_user_id,
     row.role, row.action, row.actor_auth_user_id || row.source]);
+  renderCatalog();
 }
 
 async function loadData() {
@@ -270,7 +272,7 @@ async function loadData() {
     const employee = access.employee, roles = access.roles;
     const manager = roles.some(r => ['administrator', 'teacher'].includes(r));
     const admin = roles.includes('administrator');
-    const [employees, students, sessions, studentAttendance, staffAttendance, roleCatalog, userRoles, roleAudit] = await Promise.all([
+    const [employees, students, sessions, studentAttendance, staffAttendance, roleCatalog, userRoles, roleAudit, catalog] = await Promise.all([
       readAll('employees'),
       manager ? readAll('students') : Promise.resolve([]),
       manager ? readAll('sessions') : Promise.resolve([]),
@@ -278,10 +280,11 @@ async function loadData() {
       readAll('staff_attendance'),
       admin ? readAll('roles') : Promise.resolve([]),
       admin ? readAll('user_roles') : Promise.resolve([]),
-      admin ? readAll('role_audit') : Promise.resolve([])
+      admin ? readAll('role_audit') : Promise.resolve([]),
+      loadCatalog(manager)
     ]);
     if (epoch !== generation) return false;
-    state = { allowed: true, employee, roles, employees, students, sessions, studentAttendance, staffAttendance, roleCatalog, userRoles, roleAudit };
+    state = { allowed: true, employee, roles, employees, students, sessions, studentAttendance, staffAttendance, roleCatalog, userRoles, roleAudit, catalog };
     render();
     message('load-message', employee ? 'Saved records loaded.' : 'An administrator must link your Education staff record before you can continue.', !employee);
     return !!employee;
@@ -307,7 +310,7 @@ function resetForm(id) {
     'student-attendance-form': ['student-attendance-submit', 'Save student attendance'],
     'staff-attendance-form': ['staff-attendance-submit', 'Save staff attendance'] };
   if (labels[id]) el(labels[id][0]).textContent = labels[id][1];
-  if (id === 'session-form' && !isAdmin() && state.employee) el('session-teacher').value = state.employee.id;
+  if (typeof renderCatalog === 'function') renderCatalog();
 }
 function bindSave(formId, messageId, action) {
   el(formId).addEventListener('submit', async event => {
@@ -339,17 +342,16 @@ function requiredText(id) {
 bindSave('student-form', 'student-message', async () => {
   if (!managesStudents()) throw new Error('A teacher or administrator role is required.');
   const id = el('student-id').value;
-  const result = await rpc('education_save_student', {
-    p_id: id || null, p_student_number: requiredText('student-number'), p_display_name: requiredText('student-name')
+  const result = await rpc('education_save_student_profile', {
+    p_id: id || null, p_student_number: requiredText('student-number'), p_display_name: requiredText('student-name'),
+    p_location_id: el('student-location').value, p_active: el('student-active').value === 'true'
   });
   if (!result?.length) throw new Error('No record was changed. Refresh your permissions.');
 });
 bindSave('session-form', 'session-message', async () => {
   if (!managesStudents()) throw new Error('A teacher or administrator role is required.');
-  const teacher = isAdmin() ? el('session-teacher').value : state.employee.id;
-  if (!teacher) throw new Error('Choose a teacher.');
-  const result = await rpc('education_save_session', {
-    p_title: requiredText('session-title'), p_session_date: el('session-date').value, p_teacher_id: teacher
+  const result = await rpc('education_create_class_session', {
+    p_title: requiredText('session-title'), p_session_date: el('session-date').value, p_class_id: el('session-class').value
   });
   if (!result?.length) throw new Error('No session was created.');
 });

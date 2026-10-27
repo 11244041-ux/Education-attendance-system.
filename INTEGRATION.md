@@ -18,7 +18,7 @@ The user reports applying migrations 001–003. The migration-003 access RPC now
 
 ## Portal owner handoff
 
-Use `education_get_access` with the current user's session to gray out/enable Education. After an administrator grants Teacher, refresh that access result. The same Auth UUID must be used throughout TCMS. Education's approval changes no other module's permissions.
+Use `education_get_access` with the current user's session to gray out/enable Education. After an administrator grants Teacher, refresh that access result. The Portal and module use separate projects. Their Auth UUIDs must be explicitly mapped under an agreed verification contract; matching emails or forwarding the Portal token unchanged is not sufficient. Education's approval changes no other module's permissions.
 
 For trusted same-page embedding:
 
@@ -28,13 +28,13 @@ const access = await window.educationPortal.getAccess();
 // Portal renders its Education card from access.allowed.
 ```
 
-A separate Portal can invoke the access RPC with its own Supabase client instead; no cross-window token-passing interface is provided. The Portal source is not present here, so its cards, initial-password-change workflow, navigation, and Pending notifications have not been edited or verified.
+A separate Portal requires an approved module identity/verification connection before invoking this RPC; no cross-window token-passing interface is provided. The Portal source is not present here, so its cards, initial-password-change workflow, navigation, and Pending notifications have not been edited or verified.
 
 Agree the canonical Portal profile API, account-status policy, actual routes, session-refresh/sign-out ownership, and pending-access notifications before integrated deployment. Existing Education employee rows are only a compatibility bridge; new approvals create a generic label rather than duplicate personal data. No central profile table is invented or modified.
 
 ## Remaining Education scope
 
-The meeting calls for three locations, vocational and supplementary education, courses, grades, teachers, students, and attendance. Location management, course/enrollment catalogs, grades, and their detailed permissions remain future work. Student portal accounts are undecided.
+Migration 004 and its prepared frontend implement three-location management, programs, courses, class/enrollment catalogs, and 0–20 assessment marks. They are locally tested, not yet applied/deployed from this agent. See [catalog upgrade](supabase/CATALOG_UPGRADE.md) for permissions, ER relationships, deployment steps, and legacy record review. Student portal accounts remain undecided.
 
 Proposed `Tbl02...` names and shared UI conventions require team agreement. Obtain the instructor's SBI-P-SDS v3.4 before claiming full compliance. The current module design and exact RPC signatures are documented in [SDS-TCMS2-Education-W01.md](SDS-TCMS2-Education-W01.md).
 

@@ -1,14 +1,16 @@
 # SDS — TCMS Module 02: Education and Vocational Training
 
-Version: 0.1 draft · 2026-10-27
+Version: 0.2 draft · 2026-10-28
+
+Migration 004 extends this baseline with location-scoped classes, enrollment and 0–20 assessments. Its detailed design and deployment contract are in [CATALOG_UPGRADE.md](supabase/CATALOG_UPGRADE.md). The prepared upgrade has not been applied to a hosted project by this agent.
 
 Source: TCMS Project Development Meeting Record, 2026-10-21, supplied by the project owner. Recommendations in that record remain proposals until the team approves them. This document does not claim compliance with the instructor's SBI-P-SDS v3.4, which has not been supplied.
 
 ## Scope and ownership
 
-TCMS has a shared Portal and four business modules. Education covers vocational training and supplementary education at three locations, including teachers, students, courses, grades, and attendance. This repository implements the initial Education module; location management, course catalogs/enrollment, and grades are not yet implemented.
+TCMS has a shared Portal and four business modules. Education covers vocational training and supplementary education at three locations, including teachers, students, courses, grades, and attendance. This repository now implements the prepared location/class/enrollment and assessment extension alongside the initial attendance module; hosted validation of that extension remains pending.
 
-The Portal owns account creation, Supabase Auth, password workflows, canonical user profiles, account status, and navigation. HR/Portal administrators create accounts; there is no module signup. Education owns its educational records and module authorization. One Auth User ID identifies a user throughout TCMS; no additional passwords are created by this module.
+The Portal owns account creation, Supabase Auth, password workflows, canonical user profiles, account status, and navigation. HR/Portal administrators create accounts; there is no module signup. Education owns its educational records and module authorization. The latest integration checklist specifies separate Portal/module projects. Their local Auth UUIDs must be explicitly mapped under an agreed verification contract, not assumed identical or matched by email. The prototype currently signs in to the module project; cross-project login integration is pending.
 
 The existing `education_employees` records are retained as a compatibility bridge for attendance foreign keys. Existing names are not deleted. New approvals create only a bridge with a generic label, not a copy of the user's Portal profile. Replacing those labels with a Portal-owned profile read requires the actual shared profile contract; no `Tbl00UserProfile` schema is assumed or created here.
 
@@ -29,6 +31,8 @@ Role grants/revocations are transactional and audited with the target Auth ID, r
 ## Database/API boundary
 
 RLS remains enabled on all Education tables. Migration 003 removes direct table privileges from browser roles, including Education administrators. All application data requests use authenticated RPCs with explicit operation-level authorization and bounded pages. Security-definer RPCs use a fixed empty search path and fully qualified object names. Private helper execution/schema access is revoked from client roles. Trusted database administration remains privileged.
+
+The following table documents the migration-003 baseline. Migration 004 replaces the student/session writer contracts and adds catalog, enrollment, assessment and mark RPCs as listed in [CATALOG_UPGRADE.md](supabase/CATALOG_UPGRADE.md).
 
 | RPC | Purpose |
 | --- | --- |
@@ -55,9 +59,9 @@ await window.educationPortal.setSession(portalSession);
 const { allowed, roles } = await window.educationPortal.getAccess();
 ```
 
-For a Portal hosted separately, its own authenticated Supabase client can invoke `education_get_access` directly; cross-window token messages and URL token handoff are not implemented. The Portal should gray out Education when `allowed` is false and refresh access after approval. Disabled cards are only UI feedback; the RPCs enforce the decision independently. No changes to other modules' permissions are made here.
+This adapter and access RPC currently require a token recognized by the module project. With separate Portal/module projects, the approved identity-verification/exchange contract must be implemented before Portal can invoke module access on behalf of a user. Portal and module Auth UUIDs must be explicitly mapped. Cross-window token messages and URL token handoff are not implemented. The Portal should gray out Education when `allowed` is false and refresh access after approval. Disabled cards are only UI feedback; the RPCs enforce the decision independently. No changes to other modules' permissions are made here.
 
-The standalone sign-in/reset UI uses the same Auth accounts solely to enable module development/testing. Integrated deployment should use the Portal's identity flow. Do not transmit tokens via chat, query strings, arbitrary message handlers, or browser storage. Password recovery uses a verified recovery-only callback and immediately strips its fragment.
+The standalone sign-in/reset UI currently uses module-local Auth accounts for development/testing. Integrated deployment should use the Portal's identity flow. Do not transmit tokens via chat, query strings, arbitrary message handlers, or browser storage. Password recovery uses a verified recovery-only callback and immediately strips its fragment.
 
 The Portal's exact profile fields, account-status handling, route, navigation, session lifecycle ownership, pending notification interface, and deployment arrangement still need confirmation with its owner. The central Pending-notification workflow is not invented in this module. The current gate supports approval-driven access without that notification component.
 
@@ -66,7 +70,7 @@ The Portal's exact profile fields, account-status handling, route, navigation, s
 - Keep existing table names/data intact until the team adopts naming conventions. `Tbl02...` is a meeting recommendation, not grounds for an unreviewed destructive rename.
 - Confirm common button/error wording, shared styles, return-to-Portal navigation, repository organization, and migration ownership with the standards maintainer.
 - Obtain SBI-P-SDS v3.4 before claiming compliance with its complete requirements.
-- Plan three-location separation, course/enrollment management, and grade permissions with the Education owner.
+- Validate the locally implemented three-location, course/enrollment and assessment extension using migration 004 and its test/acceptance plan.
 - Add Portal-managed canonical profile display and account-status enforcement using the actual shared schema/API.
 - A complete staff/student attendance audit history and production monitoring are separate work; this milestone audits role changes.
 
@@ -75,7 +79,7 @@ The Portal's exact profile fields, account-status handling, route, navigation, s
 1. HR creates a test account through the Portal; no Education role exists.
 2. The user signs in and changes the initial password through Portal flows.
 3. Portal shows Education disabled; direct Education business RPCs also deny access.
-4. An existing Education administrator grants `teacher` using the Education role screen or RPC, identifying the same Auth UUID.
+4. An existing Education administrator grants `teacher` using the Education role screen or RPC, identifying the verified mapped module Auth UUID.
 5. The user refreshes Portal access; Education becomes enabled while other modules remain unchanged.
 6. The teacher enters Education and performs assigned-teacher operations; administrator-only role/staff-attendance writes remain denied.
 7. The administrator sees the authorizer, timestamp, user, and role in the audit view.

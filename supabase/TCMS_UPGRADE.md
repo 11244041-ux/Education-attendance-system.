@@ -1,5 +1,7 @@
 # Apply the TCMS Education RPC upgrade
 
+For the subsequent location/class/enrollment/assessment release, apply migration 004 after this baseline and use [CATALOG_UPGRADE.md](CATALOG_UPGRADE.md). Do not deploy the new catalog frontend on a migration-003-only database.
+
 ## Before running SQL
 
 Migration 003 requires the first two migrations and changes the API boundary: existing table-based clients stop working after direct grants are revoked. Coordinate its application with deployment of the new RPC-based webpage. Do not change or rerun already-applied migrations 001/002. Use an isolated development project first.

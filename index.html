@@ -7,6 +7,7 @@
   <title>TCMS · Education and Vocational Training</title>
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
+  <script src="catalog.js" defer></script>
 </head>
 <body class="auth-view">
 <div class="auth-backdrop" aria-hidden="true">
@@ -51,6 +52,44 @@
     <button id="refresh" type="button">Refresh records</button>
     <fieldset id="data-fields" disabled hidden>
       <legend class="sr-only">Education records</legend>
+      <section id="catalog-section" hidden>
+        <h2>Programs, locations and classes</h2>
+        <p id="catalog-summary" class="muted"></p>
+        <div id="catalog-admin" hidden>
+          <h3>Assign a teacher location</h3>
+          <form id="teacher-location-form">
+            <label for="location-teacher">Teacher</label><select id="location-teacher" required></select>
+            <label for="teacher-location">Single assigned location</label><select id="teacher-location" required></select>
+            <button type="submit">Save teacher location</button>
+            <p id="teacher-location-message" class="message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="scroll"><table><caption>Teacher locations</caption><thead><tr><th scope="col">Teacher</th><th scope="col">Location</th></tr></thead><tbody id="teacher-locations-body"></tbody></table></div>
+          <h3>Create a class</h3>
+          <form id="class-form">
+            <label for="class-name">Class name</label><input id="class-name" maxlength="120" required>
+            <label for="class-location">Location</label><select id="class-location" required></select>
+            <label for="class-program">Program</label><select id="class-program" required></select>
+            <div id="course-fields" hidden><label for="class-course">Vocational course</label><select id="class-course" required></select></div>
+            <div id="cram-fields" hidden>
+              <label for="class-grade">Grade level (1–8)</label><input id="class-grade" type="number" min="1" max="8" step="1">
+              <label for="class-shift">Shift</label><select id="class-shift" data-static><option value="MORNING">Morning</option><option value="AFTERNOON">Afternoon</option></select>
+            </div>
+            <label for="class-year">Academic year</label><input id="class-year" type="number" min="2020" max="2100" step="1" required>
+            <label for="class-teacher">Assigned teacher</label><select id="class-teacher" required></select>
+            <button type="submit">Create class</button>
+            <p id="class-message" class="message" role="status" aria-live="polite"></p>
+          </form>
+          <h3>Archive or restore a class</h3>
+          <form id="class-state-form">
+            <label for="class-state-id">Class</label><select id="class-state-id" required></select>
+            <label for="class-state-active">Action</label><select id="class-state-active" data-static><option value="false">Archive</option><option value="true">Restore</option></select>
+            <p class="muted">End active enrollments before archiving. Existing records are retained.</p>
+            <button type="submit">Save class status</button>
+            <p id="class-state-message" class="message" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="scroll"><table><caption>Visible classes</caption><thead><tr><th scope="col">Class</th><th scope="col">Location</th><th scope="col">Program / course or grade</th><th scope="col">Year</th><th scope="col">Teacher</th><th scope="col">Status</th></tr></thead><tbody id="classes-body"></tbody></table></div>
+      </section>
       <section id="roles-section" hidden>
         <h2>Education access and roles</h2>
         <p>Approve an existing Portal account for this module. Other modules' permissions are unchanged.</p>
@@ -58,7 +97,7 @@
           <label for="target-auth-user">Portal Auth User ID</label>
           <input id="target-auth-user" required pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" placeholder="UUID from the Portal administrator">
           <label for="assign-role">Education role</label><select id="assign-role" required></select>
-          <label for="role-action">Action</label><select id="role-action"><option value="grant">Grant role</option><option value="revoke">Revoke role</option></select>
+          <label for="role-action">Action</label><select id="role-action" data-static><option value="grant">Grant role</option><option value="revoke">Revoke role</option></select>
           <button type="submit">Save role change</button>
           <p id="role-message" class="message" role="status" aria-live="polite"></p>
         </form>
@@ -71,19 +110,46 @@
           <input id="student-id" type="hidden">
           <label for="student-number">Student number</label><input id="student-number" maxlength="60" required>
           <label for="student-name">Student name</label><input id="student-name" maxlength="120" required>
+          <label for="student-location">Location</label><select id="student-location" required></select>
+          <label for="student-active">Profile status</label><select id="student-active" data-static><option value="true">Active</option><option value="false">Inactive</option></select>
           <button id="student-submit" type="submit">Save student</button>
           <button type="button" class="secondary" data-cancel="student-form">Clear / cancel edit</button>
           <p id="student-message" class="message" role="status" aria-live="polite"></p>
         </form>
-        <div class="scroll"><table><caption>Students</caption><thead><tr><th scope="col">Student number</th><th scope="col">Name</th><th scope="col">Action</th></tr></thead><tbody id="students-body"></tbody></table></div>
+        <div class="scroll"><table><caption>Students</caption><thead><tr><th scope="col">Student number</th><th scope="col">Name</th><th scope="col">Location</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead><tbody id="students-body"></tbody></table></div>
+      </section>
+      <section id="enrollment-section" hidden>
+        <h2>Student enrollment</h2>
+        <form id="enrollment-form">
+          <input id="enrollment-id" type="hidden">
+          <label for="enrollment-class">Class</label><select id="enrollment-class" required></select>
+          <label for="enrollment-student">Student</label><select id="enrollment-student" required></select>
+          <label for="enrollment-status">Status</label><select id="enrollment-status" data-static><option value="ACTIVE">Active</option><option value="COMPLETED">Completed</option><option value="WITHDRAWN">Withdrawn</option></select>
+          <label for="enrolled-on">Enrollment date</label><input id="enrolled-on" type="date" required>
+          <div id="ended-on-field" hidden><label for="ended-on">Last enrolled date (inclusive)</label><input id="ended-on" type="date"></div>
+          <button type="submit">Save enrollment</button>
+          <button type="button" class="secondary" data-cancel="enrollment-form">Clear / cancel edit</button>
+          <p id="enrollment-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+        <div class="scroll"><table><caption>Visible enrollments</caption><thead><tr><th scope="col">Student</th><th scope="col">Class</th><th scope="col">Status</th><th scope="col">From</th><th scope="col">Until</th><th scope="col">Action</th></tr></thead><tbody id="enrollments-body"></tbody></table></div>
       </section>
       <section id="sessions-section" hidden>
         <h2>Class sessions</h2>
+        <div id="legacy-link-section" hidden>
+          <h3>Review a preserved session</h3>
+          <p class="muted">Link an older session only after reviewing its original teacher, location and enrollment dates. Existing IDs and attendance records are retained.</p>
+          <form id="legacy-link-form">
+            <label for="legacy-session">Unclassified session</label><select id="legacy-session" required></select>
+            <label for="legacy-class">Class with the original teacher</label><select id="legacy-class" required></select>
+            <button type="submit">Link reviewed session</button>
+            <p id="legacy-link-message" class="message" role="status" aria-live="polite"></p>
+          </form>
+        </div>
         <form id="session-form">
           <label for="session-title">Session name</label><input id="session-title" maxlength="120" required>
           <label for="session-date">Date</label><input id="session-date" type="date" required>
-          <label for="session-teacher">Assigned teacher</label><select id="session-teacher" required></select>
-          <p class="muted">The assigned staff member must have the teacher role to record student attendance.</p>
+          <label for="session-class">Class</label><select id="session-class" required></select>
+          <p class="muted">Sessions inherit their class teacher and location. Older unclassified sessions remain preserved for administrator review.</p>
           <button type="submit">Save session</button>
           <p id="session-message" class="message" role="status" aria-live="polite"></p>
         </form>
@@ -95,7 +161,7 @@
           <input id="student-record-id" type="hidden">
           <label for="attendance-session">Your class session</label><select id="attendance-session" required></select>
           <label for="attendance-student">Student</label><select id="attendance-student" required></select>
-          <label for="student-status">Status</label><select id="student-status" required><option>Present</option><option>Absent</option><option>Late</option></select>
+          <label for="student-status">Status</label><select id="student-status" required data-static><option>Present</option><option>Absent</option><option>Late</option></select>
           <button id="student-attendance-submit" type="submit">Save student attendance</button>
           <button type="button" class="secondary" data-cancel="student-attendance-form">Clear / cancel correction</button>
           <p id="student-attendance-message" class="message" role="status" aria-live="polite"></p>
@@ -107,13 +173,41 @@
         <div class="scroll"><table><caption>Visible student attendance</caption><thead><tr><th scope="col">Session</th><th scope="col">Date</th><th scope="col">Student</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead><tbody id="student-records"></tbody></table></div>
         <p id="student-count" class="muted"></p>
       </section>
+      <section id="assessment-section" hidden>
+        <h2>Assessments and marks</h2>
+        <p class="muted">Assessment marks are 0–20. Cram grade levels 1–8 identify the class, not the mark scale.</p>
+        <div id="assessment-write" hidden>
+          <h3>Create an assessment</h3>
+          <form id="assessment-form">
+            <label for="assessment-class">Your class</label><select id="assessment-class" required></select>
+            <label for="assessment-subject">Subject</label><select id="assessment-subject" required></select>
+            <label for="assessment-title">Assessment title</label><input id="assessment-title" maxlength="120" required>
+            <label for="assessment-date">Date</label><input id="assessment-date" type="date" required>
+            <button type="submit">Create assessment</button>
+            <p id="assessment-message" class="message" role="status" aria-live="polite"></p>
+          </form>
+          <h3>Record or correct a mark</h3>
+          <form id="mark-form">
+            <input id="mark-id" type="hidden"><input id="mark-revision" type="hidden">
+            <label for="mark-assessment">Assessment</label><select id="mark-assessment" required></select>
+            <label for="mark-enrollment">Enrolled student</label><select id="mark-enrollment" required></select>
+            <label for="mark-value">Mark (0–20)</label><input id="mark-value" type="number" min="0" max="20" step="any" required>
+            <button type="submit">Save mark</button>
+            <button type="button" class="secondary" data-cancel="mark-form">Clear / cancel correction</button>
+            <p id="mark-message" class="message" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="scroll"><table><caption>Assessments</caption><thead><tr><th scope="col">Assessment</th><th scope="col">Class</th><th scope="col">Subject</th><th scope="col">Date</th></tr></thead><tbody id="assessments-body"></tbody></table></div>
+        <div class="scroll"><table><caption>Marks</caption><thead><tr><th scope="col">Assessment</th><th scope="col">Student</th><th scope="col">Mark / 20</th><th scope="col">Revision</th><th scope="col">Action</th></tr></thead><tbody id="marks-body"></tbody></table></div>
+        <div class="scroll"><table><caption>Mark change history</caption><thead><tr><th scope="col">Time (UTC)</th><th scope="col">Student / assessment</th><th scope="col">Previous</th><th scope="col">New</th><th scope="col">Revision</th></tr></thead><tbody id="mark-history-body"></tbody></table></div>
+      </section>
       <section id="staff-attendance-section" hidden>
         <h2>Record Education staff attendance</h2>
         <form id="staff-attendance-form">
           <input id="staff-record-id" type="hidden">
           <label for="attendance-employee">Staff member</label><select id="attendance-employee" required></select>
           <label for="staff-date">Attendance date</label><input id="staff-date" type="date" required>
-          <label for="staff-status">Status</label><select id="staff-status" required><option>Present</option><option>Absent</option><option>Late</option></select>
+          <label for="staff-status">Status</label><select id="staff-status" required data-static><option>Present</option><option>Absent</option><option>Late</option></select>
           <button id="staff-attendance-submit" type="submit">Save staff attendance</button>
           <button type="button" class="secondary" data-cancel="staff-attendance-form">Clear / cancel correction</button>
           <p id="staff-attendance-message" class="message" role="status" aria-live="polite"></p>

@@ -6,7 +6,7 @@ const root = path.join(__dirname, '../..');
 async function startStaticServer() {
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url, 'http://localhost').pathname;
-    const files = { '/': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/styles.css': ['styles.css', 'text/css'] };
+    const files = { '/': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/catalog.js': ['catalog.js','text/javascript'], '/styles.css': ['styles.css', 'text/css'] };
     let file = files[pathname];
     if (/^\/assets\/education-campus-(1100|1672)\.(avif|webp)$/.test(pathname)) {
       file = [pathname.slice(1), 'image/' + path.extname(pathname).slice(1)];
