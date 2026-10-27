@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.join(__dirname, '../..');
 const uid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-const employee = { id: uid(1), auth_user_id: uid(2), display_name: 'Fictional Staff' };
+const employee = { id: uid(1), auth_user_id: uid(2), display_name: 'Fictional Staff', is_teacher: true };
 const student = { id: uid(3), student_number: 'S001', display_name: '<b>Fictional Student</b>' };
 const lesson = { id: uid(4), title: 'Class One', session_date: '2026-10-27', teacher_id: employee.id };
 const studentRecord = { id: uid(5), session_id: lesson.id, student_id: student.id, status: 'Present' };
@@ -37,22 +37,29 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
         if (url.pathname === '/auth/v1/user') return reply({ id: employee.auth_user_id });
         if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204 });
         assert.equal(request.headers().authorization, 'Bearer test-access');
-        if (role === 'broken' && url.pathname.endsWith('/education_staff_roles')) {
+        assert.ok(url.pathname.startsWith('/rest/v1/rpc/'), 'Direct table request is forbidden');
+        assert.equal(request.method(), 'POST');
+        const name = url.pathname.split('/').pop();
+        if (role === 'broken' && name === 'education_get_access') {
           return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ message: 'Table missing' }) });
         }
-        if (request.method() !== 'GET') {
-          writes.push({ table: url.pathname.split('/').pop(), method: request.method(), body, query: url.searchParams });
+        if (name === 'education_get_access') return reply({ allowed: role !== 'unlinked', employee: role === 'unlinked' ? null : employee,
+          roles: ['teacher', 'administrator'].includes(role) ? [role] : role === 'staff' ? ['staff'] : [] });
+        if (name !== 'education_list_records') {
+          writes.push({ rpc: name, body });
           if (failWrite) return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ code: '23505', message: 'duplicate' }) });
+          if (name === 'education_assign_role') return reply({ changed: true });
           return reply([{ id: uid(90), ...body }]);
         }
-        if (Number(url.searchParams.get('offset')) > 0) return reply([]);
+        if (body.p_offset > 0) return reply([]);
         const data = {
-          education_employees: role === 'unlinked' ? [] : [employee],
-          education_staff_roles: ['teacher', 'administrator'].includes(role) ? [{ role }] : [],
-          education_students: [student], education_sessions: [lesson],
-          education_student_attendance: [studentRecord], education_staff_attendance: [staffRecord]
+          employees: [employee], students: [student], sessions: [lesson],
+          student_attendance: [studentRecord], staff_attendance: [staffRecord],
+          roles: [{ code: 'teacher', label: 'Teacher' }, { code: 'staff', label: 'Education staff' }],
+          user_roles: [{ auth_user_id: employee.auth_user_id, display_name: employee.display_name, role: 'teacher' }],
+          role_audit: [{ target_auth_user_id: employee.auth_user_id, role: 'teacher', action: 'grant', actor_auth_user_id: uid(9), occurred_at: '2026-10-27T00:00:00Z' }]
         };
-        return reply(data[url.pathname.split('/').pop()] || []);
+        return reply(data[body.p_resource] || []);
       });
       await page.goto('http://127.0.0.1:' + server.address().port);
       assert.equal(await page.locator('#workspace').isVisible(), false); checks++;
@@ -60,7 +67,7 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
       await page.fill('#email', 'fictional@example.test'); await page.fill('#password', 'fictional-password');
       await page.click('#login-submit');
       if (role === 'unlinked') {
-        await page.getByText('Ask an administrator to link your Auth account to an Education staff profile.', { exact: true }).waitFor();
+        await page.getByText('Education access has not been approved. Ask your Education administrator for a role.', { exact: true }).waitFor();
         assert.equal(await page.locator('#data-fields').evaluate(node => node.disabled), true); checks++;
       } else if (role === 'broken') {
         await page.getByText(/Could not load records: Table missing/).waitFor();
@@ -75,28 +82,28 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
           assert.equal(await page.locator('#students-body b').count(), 0); checks++;
           await page.fill('#student-number', 'S002'); await page.fill('#student-name', 'Second Student');
           await page.click('#student-submit'); await page.getByText('Saved.', { exact: true }).waitFor();
-          assert.equal(writes.at(-1).table, 'education_students'); checks++;
+          assert.equal(writes.at(-1).rpc, 'education_save_student'); checks++;
           await page.locator('#students-body button').click();
           await page.fill('#student-name', 'Corrected name'); await page.click('#student-submit');
           await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
-          assert.equal(writes.at(-1).method, 'PATCH'); checks++;
-          assert.equal(writes.at(-1).query.get('id'), 'eq.' + student.id); checks++;
+          assert.equal(writes.at(-1).rpc, 'education_save_student'); checks++;
+          assert.equal(writes.at(-1).body.p_id, student.id); checks++;
         }
         if (role === 'teacher') {
           await page.fill('#session-title', 'New lesson'); await page.fill('#session-date', '2026-10-28');
           await page.locator('#session-form button[type=submit]').click();
           await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
-          assert.equal(writes.at(-1).body.teacher_id, employee.id); checks++;
+          assert.equal(writes.at(-1).body.p_teacher_id, employee.id); checks++;
           await page.selectOption('#attendance-session', lesson.id); await page.selectOption('#attendance-student', student.id);
           await page.click('#student-attendance-submit');
           await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
-          assert.equal(writes.at(-1).body.student_id, student.id); checks++;
-          assert.equal(writes.at(-1).body.recorded_by, employee.id); checks++;
+          assert.equal(writes.at(-1).body.p_student_id, student.id); checks++;
+          assert.equal('recorded_by' in writes.at(-1).body, false); checks++;
           await page.locator('#student-records button').click(); await page.selectOption('#student-status', 'Late');
           await page.click('#student-attendance-submit');
           await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
-          assert.equal(writes.at(-1).method, 'PATCH'); checks++;
-          assert.equal(writes.at(-1).query.get('id'), 'eq.' + studentRecord.id); checks++;
+          assert.equal(writes.at(-1).rpc, 'education_save_student_attendance'); checks++;
+          assert.equal(writes.at(-1).body.p_id, studentRecord.id); checks++;
           failWrite = true;
           await page.click('[data-cancel="student-attendance-form"]');
           await page.selectOption('#attendance-session', lesson.id); await page.selectOption('#attendance-student', student.id);
@@ -107,9 +114,21 @@ const staffRecord = { id: uid(6), employee_id: employee.id, attendance_date: '20
           await page.selectOption('#attendance-employee', employee.id); await page.fill('#staff-date', '2026-10-27');
           await page.click('#staff-attendance-submit');
           await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
-          assert.equal(writes.at(-1).table, 'education_staff_attendance'); checks++;
-          assert.equal(writes.at(-1).body.employee_id, employee.id); checks++;
+          assert.equal(writes.at(-1).rpc, 'education_save_staff_attendance'); checks++;
+          assert.equal(writes.at(-1).body.p_employee_id, employee.id); checks++;
           assert.equal(await page.locator('#student-records button:visible').count(), 0); checks++;
+          assert.equal(await page.locator('#roles-section').isVisible(), true); checks++;
+          await page.fill('#target-auth-user', uid(8)); await page.selectOption('#assign-role', 'teacher');
+          await page.locator('#role-form button[type=submit]').click();
+          await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
+          assert.equal(writes.at(-1).rpc, 'education_assign_role'); checks++;
+          assert.equal(writes.at(-1).body.p_target_auth_user_id, uid(8)); checks++;
+          assert.equal(writes.at(-1).body.p_grant, true); checks++;
+          await page.locator('#user-roles-body button').click();
+          await page.locator('#role-form button[type=submit]').click();
+          await page.waitForFunction(() => document.querySelector('#data-fields').disabled === false);
+          assert.equal(writes.at(-1).body.p_grant, false); checks++;
+          assert.equal(await page.locator('#role-audit-body tr').count(), 1); checks++;
         }
         if (role === 'staff') {
           assert.equal(writes.length, 0); checks++;

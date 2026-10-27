@@ -11,7 +11,7 @@ let busy = false;
 let recoveryToken = null;
 let state = emptyState();
 function emptyState() {
-  return { employee: null, roles: [], employees: [], students: [], sessions: [], studentAttendance: [], staffAttendance: [] };
+  return { allowed: false, employee: null, roles: [], employees: [], students: [], sessions: [], studentAttendance: [], staffAttendance: [], roleCatalog: [], userRoles: [], roleAudit: [] };
 }
 function message(id, text, error = false) {
   el(id).textContent = text;
@@ -59,11 +59,12 @@ function clearSession() {
   el('login-section').hidden = false;
   el('recovery-section').hidden = true;
   el('identity').textContent = '';
-  for (const id of ['students-body', 'sessions-body', 'student-records', 'staff-records']) el(id).replaceChildren();
+  for (const id of ['students-body', 'sessions-body', 'student-records', 'staff-records', 'user-roles-body', 'role-audit-body']) el(id).replaceChildren();
+  el('data-fields').hidden = true;
   for (const form of document.querySelectorAll('form')) form.reset();
   for (const field of document.querySelectorAll('input[type=hidden]')) field.value = '';
-  for (const select of document.querySelectorAll('#workspace select:not(#student-status):not(#staff-status)')) select.replaceChildren();
-  for (const id of ['load-message', 'student-message', 'session-message', 'student-attendance-message', 'staff-attendance-message']) message(id, '');
+  for (const select of document.querySelectorAll('#workspace select:not(#student-status):not(#staff-status):not(#role-action)')) select.replaceChildren();
+  for (const id of ['load-message', 'student-message', 'session-message', 'student-attendance-message', 'staff-attendance-message', 'role-message']) message(id, '');
 }
 
 async function accessToken() {
@@ -82,7 +83,7 @@ async function accessToken() {
           method: 'POST', body: { refresh_token: refreshToken }
         });
         if (epoch !== generation) throw new Error('The session changed.');
-        session = { ...data, expires_at: Date.now() + data.expires_in * 1000 };
+        session = { ...session, ...data, expires_at: Date.now() + data.expires_in * 1000 };
         return session.access_token;
       } catch (error) {
         if (epoch === generation) {
@@ -98,12 +99,11 @@ async function accessToken() {
   return refreshPromise;
 }
 
-async function request(query, method = 'GET', body) {
+async function rpc(name, body = {}) {
   const epoch = generation;
   try {
-    const data = await transport('/rest/v1/' + query, {
-      method, body, token: await accessToken(),
-      ...(method === 'GET' ? {} : { prefer: 'return=representation' })
+    const data = await transport('/rest/v1/rpc/' + name, {
+      method: 'POST', body, token: await accessToken()
     });
     if (epoch !== generation) throw new Error('The session changed.');
     return data;
@@ -115,10 +115,10 @@ async function request(query, method = 'GET', body) {
     throw error;
   }
 }
-async function readAll(query) {
+async function readAll(resource) {
   const result = [];
   for (let offset = 0; ; ) {
-    const rows = await request(query + '&limit=500&offset=' + offset);
+    const rows = await rpc('education_list_records', { p_resource: resource, p_limit: 500, p_offset: offset });
     if (!Array.isArray(rows)) throw new Error('The database returned an unexpected response.');
     result.push(...rows);
     if (!rows.length) return result;
@@ -206,11 +206,13 @@ function render() {
   const profile = state.employee;
   el('identity').textContent = profile
     ? profile.display_name + ' · ' + (state.roles.join(', ') || 'Education staff')
-    : 'No Education staff profile is linked to this account. Contact an administrator.';
+    : 'Education access awaits administrator approval.';
+  el('data-fields').hidden = !state.allowed;
   const manager = managesStudents();
   for (const id of ['students-section', 'sessions-section', 'student-records-section']) el(id).hidden = !manager;
   el('student-attendance-section').hidden = !isTeacher();
   el('staff-attendance-section').hidden = !isAdmin();
+  el('roles-section').hidden = !isAdmin();
   el('staff-heading').textContent = isAdmin() ? 'Education staff attendance' : 'My staff attendance';
   el('students-body').replaceChildren();
   for (const student of state.students) tableRow('students-body', [student.student_number, student.display_name], {
@@ -225,7 +227,7 @@ function render() {
   el('sessions-body').replaceChildren();
   const employeeName = id => state.employees.find(row => row.id === id)?.display_name || id;
   for (const lesson of state.sessions) tableRow('sessions-body', [lesson.title, lesson.session_date, employeeName(lesson.teacher_id)]);
-  choices('session-teacher', isAdmin() ? state.employees : profile ? [profile] : [], r => r.display_name, 'Choose staff member with teacher role');
+  choices('session-teacher', isAdmin() ? state.employees.filter(row => row.is_teacher) : profile ? [profile] : [], r => r.display_name, 'Choose assigned teacher');
   if (!isAdmin() && profile) el('session-teacher').value = profile.id;
   el('session-teacher').disabled = !isAdmin();
   choices('attendance-session', state.sessions.filter(r => r.teacher_id === profile?.id), r => r.title + ' · ' + r.session_date, 'Choose your class session');
@@ -233,6 +235,20 @@ function render() {
   choices('attendance-employee', state.employees, r => r.display_name, 'Choose staff member');
   choices('session-filter', state.sessions, r => r.title + ' · ' + r.session_date, 'All visible sessions');
   renderAttendance();
+  choices('assign-role', state.roleCatalog.map(row => ({ id: row.code, label: row.label })), row => row.label, 'Choose role');
+  el('user-roles-body').replaceChildren();
+  for (const row of state.userRoles) tableRow('user-roles-body', [row.display_name || 'Portal user', row.auth_user_id, row.role], {
+    label: 'Revoke', run: () => {
+      el('target-auth-user').value = row.auth_user_id;
+      el('assign-role').value = row.role;
+      el('role-action').value = 'revoke';
+      el('role-form').scrollIntoView({ block: 'center' });
+      message('role-message', 'Review the selected user and role, then save to revoke access.');
+    }
+  });
+  el('role-audit-body').replaceChildren();
+  for (const row of state.roleAudit) tableRow('role-audit-body', [row.occurred_at, row.target_auth_user_id,
+    row.role, row.action, row.actor_auth_user_id || row.source]);
 }
 
 async function loadData() {
@@ -242,21 +258,30 @@ async function loadData() {
   el('data-fields').disabled = true;
   message('load-message', 'Loading records…');
   try {
-    const profiles = await readAll('education_employees?select=id,auth_user_id,display_name&auth_user_id=eq.' + encodeURIComponent(session.user.id));
-    const employee = profiles[0];
-    const roles = employee ? await readAll('education_staff_roles?select=role&employee_id=eq.' + employee.id) : [];
-    const manager = roles.some(r => ['administrator', 'teacher'].includes(r.role));
-    const [employees, students, sessions, studentAttendance, staffAttendance] = employee ? await Promise.all([
-      manager ? readAll('education_employees?select=id,display_name&order=display_name,id') : Promise.resolve(profiles),
-      manager ? readAll('education_students?select=id,student_number,display_name&order=student_number,id') : Promise.resolve([]),
-      manager ? readAll('education_sessions?select=id,title,session_date,teacher_id&order=session_date,id') : Promise.resolve([]),
-      manager ? readAll('education_student_attendance?select=id,session_id,student_id,status&order=id') : Promise.resolve([]),
-      readAll('education_staff_attendance?select=id,employee_id,attendance_date,status&order=attendance_date,id')
-    ]) : [[], [], [], [], []];
+    const access = await rpc('education_get_access');
     if (epoch !== generation) return false;
-    state = { employee, roles: roles.map(r => r.role), employees, students, sessions, studentAttendance, staffAttendance };
+    if (!access.allowed) {
+      state = emptyState(); render();
+      message('load-message', 'Education access has not been approved. Ask your Education administrator for a role.');
+      return false;
+    }
+    const employee = access.employee, roles = access.roles;
+    const manager = roles.some(r => ['administrator', 'teacher'].includes(r));
+    const admin = roles.includes('administrator');
+    const [employees, students, sessions, studentAttendance, staffAttendance, roleCatalog, userRoles, roleAudit] = await Promise.all([
+      readAll('employees'),
+      manager ? readAll('students') : Promise.resolve([]),
+      manager ? readAll('sessions') : Promise.resolve([]),
+      manager ? readAll('student_attendance') : Promise.resolve([]),
+      readAll('staff_attendance'),
+      admin ? readAll('roles') : Promise.resolve([]),
+      admin ? readAll('user_roles') : Promise.resolve([]),
+      admin ? readAll('role_audit') : Promise.resolve([])
+    ]);
+    if (epoch !== generation) return false;
+    state = { allowed: true, employee, roles, employees, students, sessions, studentAttendance, staffAttendance, roleCatalog, userRoles, roleAudit };
     render();
-    message('load-message', employee ? 'Saved records loaded.' : 'Ask an administrator to link your Auth account to an Education staff profile.', !employee);
+    message('load-message', employee ? 'Saved records loaded.' : 'An administrator must link your Education staff record before you can continue.', !employee);
     return !!employee;
   } catch (error) {
     if (epoch === generation) {
@@ -312,8 +337,8 @@ function requiredText(id) {
 bindSave('student-form', 'student-message', async () => {
   if (!managesStudents()) throw new Error('A teacher or administrator role is required.');
   const id = el('student-id').value;
-  const result = await request('education_students' + (id ? '?id=eq.' + encodeURIComponent(id) : ''), id ? 'PATCH' : 'POST', {
-    student_number: requiredText('student-number'), display_name: requiredText('student-name')
+  const result = await rpc('education_save_student', {
+    p_id: id || null, p_student_number: requiredText('student-number'), p_display_name: requiredText('student-name')
   });
   if (!result?.length) throw new Error('No record was changed. Refresh your permissions.');
 });
@@ -321,8 +346,8 @@ bindSave('session-form', 'session-message', async () => {
   if (!managesStudents()) throw new Error('A teacher or administrator role is required.');
   const teacher = isAdmin() ? el('session-teacher').value : state.employee.id;
   if (!teacher) throw new Error('Choose a teacher.');
-  const result = await request('education_sessions', 'POST', {
-    title: requiredText('session-title'), session_date: el('session-date').value, teacher_id: teacher
+  const result = await rpc('education_save_session', {
+    p_title: requiredText('session-title'), p_session_date: el('session-date').value, p_teacher_id: teacher
   });
   if (!result?.length) throw new Error('No session was created.');
 });
@@ -330,14 +355,22 @@ for (const kind of ['student', 'staff']) {
   bindSave(kind + '-attendance-form', kind + '-attendance-message', async () => {
     if (kind === 'student' ? !isTeacher() : !isAdmin()) throw new Error('Your role cannot record this attendance.');
     const id = el(kind + '-record-id').value;
-    const body = { status: el(kind + '-status').value, recorded_by: state.employee.id,
+    const body = { p_id: id || null, p_status: el(kind + '-status').value,
       ...(kind === 'student'
-        ? { session_id: el('attendance-session').value, student_id: el('attendance-student').value }
-        : { employee_id: el('attendance-employee').value, attendance_date: el('staff-date').value }) };
-    const result = await request('education_' + kind + '_attendance' + (id ? '?id=eq.' + encodeURIComponent(id) : ''), id ? 'PATCH' : 'POST', body);
+        ? { p_session_id: el('attendance-session').value, p_student_id: el('attendance-student').value }
+        : { p_employee_id: el('attendance-employee').value, p_attendance_date: el('staff-date').value }) };
+    const result = await rpc('education_save_' + kind + '_attendance', body);
     if (!result?.length) throw new Error('No record was changed. Refresh your permissions.');
   });
 }
+bindSave('role-form', 'role-message', async () => {
+  if (!isAdmin()) throw new Error('An Education administrator role is required.');
+  const result = await rpc('education_assign_role', {
+    p_target_auth_user_id: requiredText('target-auth-user'),
+    p_role: el('assign-role').value, p_grant: el('role-action').value === 'grant'
+  });
+  if (!result.changed) throw new Error('No change: this role is already in the requested state.');
+});
 for (const button of document.querySelectorAll('[data-cancel]')) button.addEventListener('click', () => {
   resetForm(button.dataset.cancel);
 });
@@ -369,7 +402,8 @@ async function signOut() {
   }
 }
 el('sign-out').addEventListener('click', signOut);
-window.educationPortal = Object.freeze({ setSession, signOut, clearSession });
+window.educationPortal = Object.freeze({ setSession, signOut, clearSession,
+  getAccess: () => rpc('education_get_access') });
 
 el('forgot-password').addEventListener('click', async () => {
   if (!el('email').reportValidity()) return;

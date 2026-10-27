@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Education Department</title>
+  <title>TCMS · Education and Vocational Training</title>
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
 <body>
 <main>
-  <header><h1>Education Department</h1><p>Student profiles, class sessions, and student and staff attendance.</p></header>
+  <header><p>Tzu Chi Mozambique System · Module 02</p><h1>Education and Vocational Training</h1><p>Student profiles, class sessions, and student and staff attendance.</p></header>
   <section id="login-section">
     <h2>Staff sign in</h2>
     <p>Use your company account. Access is based on your Education staff profile and assigned roles.</p>
@@ -38,8 +38,22 @@
     <section class="toolbar"><p id="identity"></p><button id="sign-out" type="button">Sign out</button></section>
     <p id="load-message" class="message" role="status" aria-live="polite"></p>
     <button id="refresh" type="button">Refresh records</button>
-    <fieldset id="data-fields" disabled>
+    <fieldset id="data-fields" disabled hidden>
       <legend class="sr-only">Education records</legend>
+      <section id="roles-section" hidden>
+        <h2>Education access and roles</h2>
+        <p>Approve an existing Portal account for this module. Other modules' permissions are unchanged.</p>
+        <form id="role-form">
+          <label for="target-auth-user">Portal Auth User ID</label>
+          <input id="target-auth-user" required pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" placeholder="UUID from the Portal administrator">
+          <label for="assign-role">Education role</label><select id="assign-role" required></select>
+          <label for="role-action">Action</label><select id="role-action"><option value="grant">Grant role</option><option value="revoke">Revoke role</option></select>
+          <button type="submit">Save role change</button>
+          <p id="role-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+        <div class="scroll"><table><caption>Approved Education roles</caption><thead><tr><th scope="col">Name</th><th scope="col">Auth User ID</th><th scope="col">Role</th><th scope="col">Action</th></tr></thead><tbody id="user-roles-body"></tbody></table></div>
+        <div class="scroll"><table><caption>Role change history</caption><thead><tr><th scope="col">Time (UTC)</th><th scope="col">Target Auth User ID</th><th scope="col">Role</th><th scope="col">Action</th><th scope="col">Authorized by / source</th></tr></thead><tbody id="role-audit-body"></tbody></table></div>
+      </section>
       <section id="students-section" hidden>
         <h2>Student profiles</h2>
         <form id="student-form">

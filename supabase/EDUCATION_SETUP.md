@@ -1,5 +1,7 @@
 # Students, staff roles, and attendance
 
+**Historical setup for migration 002.** Migration 003 replaces direct table access and SQL-only role provisioning with authenticated RPCs and audited module-administrator approval. Follow [TCMS_UPGRADE.md](TCMS_UPGRADE.md) for the current upgrade. Do not use the earlier role table as the active authorization source after upgrading.
+
 ## Agreed permissions
 
 | Operation | Administrator | Teacher | Other Education staff |

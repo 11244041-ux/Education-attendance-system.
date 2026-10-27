@@ -1,5 +1,7 @@
 # Education employee database setup
 
+**Historical setup for migration 001.** Current clients use the migration-003 RPC boundary and explicit module approval. Follow [TCMS_UPGRADE.md](TCMS_UPGRADE.md) for the current deployment and role-assignment process. Descriptions of direct reads and own-profile table access below document the earlier milestone and do not apply after migration 003.
+
 For the subsequent roles, student profiles, and separate attendance migration, follow [EDUCATION_SETUP.md](EDUCATION_SETUP.md). The own-profile-only description below covers the first migration; the second also allows administrators and teachers to read the Education staff directory.
 
 ## Scope
